@@ -112,7 +112,7 @@ spec:
 
     stage('Build & push images') {
       when {
-        branch 'main'
+        branch 'origin/main'
       }
       steps {
         container('kaniko') {
@@ -132,7 +132,7 @@ spec:
 
     stage('Deploy') {
       when {
-        branch 'main'
+        branch 'origin/main'
       }
       steps {
         container('helm') {
