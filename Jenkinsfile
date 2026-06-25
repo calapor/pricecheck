@@ -1,7 +1,3 @@
-// PriceCheck CI/CD — runs entirely on the self-hosted arm64 (Raspberry Pi) cluster.
-// Agents are ephemeral Kubernetes pods. All container images below are multi-arch
-// and run natively on aarch64. Images are built with Kaniko (no Docker daemon) and
-// pushed to the in-cluster registry; deploy is `helm upgrade` via an in-cluster SA.
 pipeline {
   agent {
     kubernetes {
@@ -14,21 +10,23 @@ spec:
   securityContext:
     fsGroup: 1000
   containers:
-    - name: node            # build + test (node:22 is multi-arch / arm64)
+    - name: node
       image: node:22-bookworm
       command: ["sleep"]
       args: ["infinity"]
       resources:
         requests: { cpu: "500m", memory: "1Gi" }
         limits:   { cpu: "2",    memory: "2Gi" }
-    - name: kaniko          # OCI image build (executor images are multi-arch / arm64)
+
+    - name: kaniko
       image: gcr.io/kaniko-project/executor:v1.23.2-debug
       command: ["sleep"]
       args: ["infinity"]
       resources:
         requests: { cpu: "500m", memory: "1Gi" }
         limits:   { cpu: "2",    memory: "2.5Gi" }
-    - name: helm            # deploy (alpine/helm is multi-arch / arm64)
+
+    - name: helm
       image: alpine/helm:3.16.3
       command: ["sleep"]
       args: ["infinity"]
@@ -41,33 +39,40 @@ spec:
 
   options {
     disableConcurrentBuilds()
-    timeout(time: 45, unit: 'MINUTES')   // Pi builds are slower than cloud runners
+    timeout(time: 45, unit: 'MINUTES')
   }
 
   environment {
-    REGISTRY   = 'registry.pricecheck:5000'   // in-cluster registry (HTTP/insecure)
+    REGISTRY   = 'registry.pricecheck:5000'
     IMAGE_REPO = 'pricecheck'
     NAMESPACE  = 'pricecheck'
   }
 
-stage('Setup') {
-  steps {
-    container('node') {
-      sh 'git config --global --add safe.directory "$WORKSPACE"'
+  stages {
 
-      script {
-        env.IMAGE_TAG = sh(
-          returnStdout: true,
-          script: 'git rev-parse --short HEAD'
-        ).trim()
+    stage('Setup') {
+      steps {
+        container('node') {
+          sh 'git config --global --add safe.directory "$WORKSPACE"'
+
+          script {
+            env.IMAGE_TAG = sh(
+              returnStdout: true,
+              script: 'git rev-parse --short HEAD'
+            ).trim()
+          }
+
+          sh 'corepack enable && corepack prepare pnpm@11.1.1 --activate'
+        }
       }
-
-      sh 'corepack enable && corepack prepare pnpm@11.1.1 --activate'
     }
-  }
-}
+
     stage('Install') {
-      steps { container('node') { sh 'pnpm install --frozen-lockfile' } }
+      steps {
+        container('node') {
+          sh 'pnpm install --frozen-lockfile'
+        }
+      }
     }
 
     stage('Verify') {
@@ -82,7 +87,9 @@ stage('Setup') {
     }
 
     stage('Build & push images') {
-      when { branch 'main' }
+      when {
+        branch 'main'
+      }
       steps {
         container('kaniko') {
           sh '''
@@ -100,7 +107,9 @@ stage('Setup') {
     }
 
     stage('Deploy') {
-      when { branch 'main' }
+      when {
+        branch 'main'
+      }
       steps {
         container('helm') {
           sh '''
@@ -115,10 +124,16 @@ stage('Setup') {
         }
       }
     }
+
   }
 
   post {
-    success { echo "Deployed pricecheck @ ${env.IMAGE_TAG}" }
-    failure { echo "Pipeline failed — see stage logs." }
+    success {
+      echo "Deployed pricecheck @ ${env.IMAGE_TAG}"
+    }
+
+    failure {
+      echo 'Pipeline failed — see stage logs.'
+    }
   }
 }
