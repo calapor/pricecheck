@@ -4,7 +4,7 @@ ENV PNPM_HOME=/pnpm
 ENV CI=true
 ENV PNPM_CONFIG_CONFIRM_MODULES_PURGE=false
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enabled
+RUN corepack enable
 RUN corepack prepare pnpm@11.1.1 --activate
 WORKDIR /app
 
