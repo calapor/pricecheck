@@ -1,36 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PriceCheck — Resilient Price-Scraping Platform
 
-## Getting Started
+[![CI](https://github.com/calapor/pricecheck/actions/workflows/ci.yml/badge.svg)](https://github.com/calapor/pricecheck/actions/workflows/ci.yml)
 
-First, run the development server:
+A production-shaped platform that periodically scrapes retailer sites and serves the
+latest prices (and price history) for tracked products. Built as a **portfolio
+project** to demonstrate end-to-end engineering — design → build → test → deploy —
+delivered through an **AI-leveraged development workflow** on a modern, scalable,
+resilient architecture.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+> The interesting engineering here isn't the web page — it's making an *unreliable,
+> adversarial* workload (scraping) dependable: decoupling the fragile scrape path from
+> a fast read path, and running scrapers as a fault-isolated, horizontally-scalable
+> worker fleet behind a durable queue.
+
+📄 **Full design:** [`specs/architecture.md`](specs/architecture.md) ·
+🔧 **Pipeline:** [`specs/ci-cd-pipeline.md`](specs/ci-cd-pipeline.md)
+
+---
+
+## 🧭 What it does
+
+- Scrapes a configurable set of retailers on a **daily schedule**, plus **on-demand
+  refresh** for hot items.
+- Normalises prices to integer **minor units** + ISO-4217 currency (never floats).
+- Stores current state for O(1) reads and an append-only **price history** time series.
+- Serves a web UI + read API that **never blocks on a scrape** — degrades to
+  "last known price + staleness badge".
+- Detects **price anomalies** (a proxy for "the site changed and our parser broke").
+
+## 🏗️ Architecture at a glance
+
+![PriceCheck architecture](docs/diagrams/architecture.png)
+
+<sub>Diagram source: [`docs/diagrams/architecture.puml`](docs/diagrams/architecture.puml) (rendered via Kroki).</sub>
+
+- **Decoupled** read/write paths · **queue** for resilience (retries, DLQ, priority).
+- **Adapter pattern** isolates each retailer's fragility behind a circuit breaker.
+- **Idempotent upserts** (dedupe by content hash) make at-least-once retries safe.
+- Everything self-hosts on a **Kubernetes** cluster — no managed-service lock-in.
+
+See [`specs/architecture.md`](specs/architecture.md) for the full diagram, data model,
+resilience and scalability patterns.
+
+## 🤖 AI-leveraged SDLC (the portfolio angle)
+
+This repo was designed and built with an AI agent (Claude) driving each SDLC stage,
+with a senior engineer steering and reviewing:
+
+| Stage | How AI was used | Human-in-the-loop |
+|-------|-----------------|-------------------|
+| **Design** | Generated the architecture from requirements, surfaced trade-offs (build-vs-buy scraping, serverless vs k8s) as explicit decisions | Chose scale, infra (own k8s), self-host scraping |
+| **Build** | Scaffolded the monorepo, data model, scraper adapters, queue + worker | Reviewed contracts and conventions |
+| **Test** | Wrote fixture/contract/unit tests; caught a real **zero-decimal currency** parsing bug | Confirmed coverage targets |
+| **Harden** | Resolved dependency skew, lazy DB/queue init, green CI across 8 packages | Verified pipeline goes green |
+| **Deploy** | Authored Dockerfiles, Helm chart, GitHub Actions (CI + image build + deploy) | Owns cluster secrets/cutover |
+
+The prompts that drove this work live in [`prompts/`](prompts/), and the key decisions
+are captured as ADRs in [`docs/adr/`](docs/adr/).
+
+## 🧱 Tech stack
+
+| Layer | Choice |
+|-------|--------|
+| Web / API | Next.js 16 (App Router), React 19, Tailwind 4, TypeScript |
+| Data | PostgreSQL + Drizzle ORM (CloudNativePG in-cluster; Neon as managed alt) |
+| Queue / cache | Redis + BullMQ |
+| Scraping | HTTP + Playwright (per-retailer adapters), light proxy rotation |
+| Validation | Zod at every scraper boundary |
+| Observability | Prometheus metrics (`prom-client`), structured logs |
+| Packaging | Docker, Helm, Kubernetes (CronJob, Deployment, KEDA-ready) |
+| CI/CD | GitHub Actions → GHCR → `helm upgrade`, **or** self-hosted Jenkins → in-cluster registry (arm64 Pi) |
+
+## 📁 Monorepo layout
+
+```
+apps/
+  web/            Next.js — UI, read API, on-demand refresh, /metrics, /healthz
+  worker/         BullMQ consumer; per-retailer scrape pipeline
+  scheduler/      enqueuer invoked by the k8s CronJob
+packages/
+  core/           money/price logic, product matching, anomaly detection (+ tests)
+  db/             Drizzle schema, client, repository, migrations, seed
+  queue/          BullMQ wrapper (queues, job types, DLQ policy)
+  scrapers/       adapter interface, HTTP fetch, circuit breaker, retailer adapters
+  observability/  logger + Prometheus metrics
+deploy/
+  docker/         web + worker Dockerfiles
+  helm/pricecheck Helm chart
+.github/workflows ci.yml · images.yml · deploy.yml
+specs/            architecture, ci-cd-pipeline, (more to come)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Getting started
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Bring up Postgres + Redis (local), then:
+cp .env.example .env            # set DATABASE_URL, REDIS_URL
+pnpm db:migrate && pnpm db:seed # schema + sample retailers/products
 
-## Learn More
+pnpm dev                        # web at http://localhost:3000
+pnpm worker                     # in another shell: process scrape jobs
+pnpm scheduler                  # enqueue a scrape sweep
+```
 
-To learn more about Next.js, take a look at the following resources:
+## ✅ Quality gates (all green in CI)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm -r lint        # eslint
+pnpm -r typecheck   # tsc --noEmit across 8 packages
+pnpm -r test        # vitest (fixtures + contract + unit)
+pnpm -r build       # next build (standalone)
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🗺️ Status & roadmap
 
-## Deploy on Vercel
+- [x] Monorepo, data model, queue, one reference retailer adapter, green pipeline
+- [x] CI (lint/typecheck/test/build) + image build/push to GHCR
+- [x] Helm chart — web/worker/scheduler + migration Job + in-cluster Postgres/Redis
+      (`helm lint` + `template` + `kubectl --dry-run` verified). See [`specs/deployment.md`](specs/deployment.md)
+- [ ] Deploy to the cluster (needs kubeconfig/secrets) + Grafana dashboards
+- [ ] Align UI + data model to the on-sale wireframes (`PriceWatch.pdf`)
+- [ ] Playwright fallback + proxy rotation for bot-protected retailers
+- [ ] KEDA autoscaling, `price_history` partitioning, price-drop alerts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Full phased plan and verification steps are in [`specs/architecture.md`](specs/architecture.md).

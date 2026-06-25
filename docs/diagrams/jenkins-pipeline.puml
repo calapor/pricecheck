@@ -1,0 +1,27 @@
+@startuml jenkins-pipeline
+title PriceCheck — Self-hosted Jenkins CI/CD (arm64 cluster)
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam ArrowColor #555555
+left to right direction
+
+rectangle "git push\n(main)" as push
+
+package "Kubernetes (Raspberry Pi / arm64)" {
+  node "Jenkins controller\n(NodePort UI)" as jenkins
+  node "Agent pod (ephemeral)" as agent {
+    [node\nlint·typecheck·test·build] as nodec
+    [kaniko\nbuild web+worker] as kaniko
+    [helm\nupgrade --install] as helmc
+  }
+  database "In-cluster registry\nregistry.pricecheck:5000" as reg
+  node "PriceCheck pods\nweb · worker · scheduler" as app
+}
+
+push --> jenkins : webhook / poll
+jenkins --> agent : schedule build
+nodec --> kaniko : on main
+kaniko --> reg : push arm64 images
+helmc --> app : deploy
+reg --> app : containerd pulls\n(via registries.yaml mirror)
+@enduml

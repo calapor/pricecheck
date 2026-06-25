@@ -1,0 +1,49 @@
+{{- if .Values.migrations.enabled }}
+# Runs `pnpm db:migrate`. A post-install/post-upgrade hook so the env Secret and
+# (in staging) the in-cluster Postgres already exist; an init container waits for
+# Postgres to accept connections first.
+#
+# Production note: with a managed/external DB this can instead be a pre-upgrade
+# hook so the schema lands before new pods roll.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "pricecheck.fullname" . }}-migrate
+  labels:
+    {{- include "pricecheck.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        {{- include "pricecheck.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      {{- include "pricecheck.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.postgres.enabled }}
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.postgres.image }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ include "pricecheck.fullname" . }}-postgres -p 5432 -U {{ .Values.postgres.username | quote }}; do
+                echo "waiting for postgres..."; sleep 2;
+              done
+      {{- end }}
+      containers:
+        - name: migrate
+          image: {{ include "pricecheck.workerImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["pnpm", "db:migrate"]
+          envFrom:
+            - secretRef:
+                name: {{ include "pricecheck.envSecretName" . }}
+{{- end }}

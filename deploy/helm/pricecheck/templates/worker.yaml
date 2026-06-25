@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pricecheck.fullname" . }}-worker
+  labels:
+    {{- include "pricecheck.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "pricecheck.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "pricecheck.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.worker.metricsPort | quote }}
+    spec:
+      {{- include "pricecheck.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: worker
+          image: {{ include "pricecheck.workerImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["pnpm", "worker"]
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.worker.metricsPort }}
+          env:
+            - name: WORKER_CONCURRENCY
+              value: {{ .Values.worker.concurrency | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.worker.metricsPort | quote }}
+            - name: PG_POOL_MAX
+              value: {{ .Values.config.pgPoolMax | quote }}
+          envFrom:
+            - secretRef:
+                name: {{ include "pricecheck.envSecretName" . }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}

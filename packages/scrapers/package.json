@@ -1,0 +1,22 @@
+{
+  "name": "@pricecheck/scrapers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pricecheck/core": "workspace:*",
+    "@pricecheck/observability": "workspace:*",
+    "cheerio": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "vitest": "^2.1.8"
+  }
+}

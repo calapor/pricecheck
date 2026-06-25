@@ -1,0 +1,20 @@
+@startuml cicd-pipeline
+title PriceCheck — CI/CD pipeline
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam ArrowColor #555555
+left to right direction
+
+rectangle "push / PR" as push
+rectangle "ci.yml\nlint · typecheck\ntest · build" as ci
+rectangle "images.yml\nbuild & push\nweb + worker" as images
+database "GHCR\nsha / semver tags" as ghcr
+rectangle "deploy.yml\nmanual · env-gated\nhelm upgrade --install" as deploy
+node "Kubernetes\ncluster" as k8s
+
+push --> ci
+ci --> images : on main
+images --> ghcr
+ghcr --> deploy
+deploy --> k8s : migrate hook → rollout\n(--atomic)
+@enduml

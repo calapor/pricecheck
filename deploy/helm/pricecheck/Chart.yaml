@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pricecheck
+description: Price-scraping platform — web, scraper workers, scheduler, migrations.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

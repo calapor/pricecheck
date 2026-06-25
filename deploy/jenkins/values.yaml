@@ -1,0 +1,76 @@
+# Values for the official Jenkins chart (https://charts.jenkins.io), tuned for a
+# small arm64 Raspberry Pi cluster. The controller image (jenkins/jenkins:lts) and
+# the inbound agent are multi-arch and run natively on aarch64.
+#
+# Install:
+#   helm repo add jenkins https://charts.jenkins.io && helm repo update
+#   helm upgrade --install jenkins jenkins/jenkins -n jenkins --create-namespace \
+#     -f deploy/jenkins/values.yaml
+
+controller:
+  # Modest footprint for a Pi node.
+  resources:
+    requests: { cpu: "500m", memory: "1Gi" }
+    limits:   { cpu: "1",    memory: "1.5Gi" }
+  javaOpts: "-Xmx1024m"
+
+  # IP-only cluster: expose the UI on a NodePort (http://<node-ip>:32000).
+  serviceType: NodePort
+  nodePort: 32010
+
+  # Plugins needed for k8s agents + Configuration-as-Code + Pipeline-from-SCM.
+  installPlugins:
+    - kubernetes
+    - workflow-aggregator
+    - git
+    - configuration-as-code
+    - job-dsl
+    - pipeline-stage-view
+
+  # Configuration as Code: define the kubernetes cloud + seed the pipeline job
+  # straight from the repo's Jenkinsfile. No manual UI clicking.
+  JCasC:
+    defaultConfig: true
+    configScripts:
+      pricecheck-job: |
+        jobs:
+          - script: >
+              pipelineJob('pricecheck') {
+                description('PriceCheck CI/CD — builds, tests, and deploys to this cluster')
+                definition {
+                  cpsScm {
+                    scm {
+                      git {
+                        remote {
+                          url('https://github.com/calapor/pricecheck.git')
+                          // Add a "Username with password" credential (GitHub PAT)
+                          // in Jenkins with this ID. Drop this line if the repo is public.
+                          credentials('github-pat')
+                        }
+                        branches('*/main')
+                      }
+                    }
+                    scriptPath('Jenkinsfile')
+                  }
+                }
+              }
+
+agent:
+  # Ephemeral build agents. The Jenkinsfile defines its own pod template
+  # (node + kaniko + helm), so the default agent just needs to be arm64-capable.
+  resources:
+    requests: { cpu: "250m", memory: "512Mi" }
+    limits:   { cpu: "1",    memory: "1Gi" }
+
+persistence:
+  enabled: true
+  # k3s default; change to your cluster's StorageClass.
+  storageClass: local-path
+  size: 8Gi
+
+# The chart-managed SA can schedule agent pods. Deploys use the separate
+# `jenkins-deployer` SA from deploy/jenkins/rbac.yaml.
+serviceAccount:
+  create: true
+rbac:
+  create: true

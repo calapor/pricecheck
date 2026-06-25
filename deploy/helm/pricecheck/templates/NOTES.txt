@@ -1,0 +1,32 @@
+PriceCheck {{ .Chart.AppVersion }} deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Components:
+  web        Deployment + Service{{ if .Values.ingress.enabled }} + Ingress (host: {{ .Values.ingress.host }}){{ end }}
+  worker     Deployment (BullMQ consumer, metrics :{{ .Values.worker.metricsPort }})
+  scheduler  CronJob (schedule: {{ .Values.scheduler.schedule }})
+  migrate    post-install/upgrade Job (pnpm db:migrate)
+{{- if .Values.postgres.enabled }}
+  postgres   in-cluster StatefulSet (STAGING)
+{{- end }}
+{{- if .Values.redis.enabled }}
+  redis      in-cluster StatefulSet
+{{- end }}
+
+Next:
+  # Watch rollout
+  kubectl -n {{ .Release.Namespace }} get pods -w
+
+{{- if not .Values.ingress.enabled }}
+
+  # No Ingress — reach the UI via port-forward:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "pricecheck.fullname" . }}-web 3000:80
+  # then open http://localhost:3000
+{{- else }}
+
+  # Point {{ .Values.ingress.host }} at your ingress controller, then open http://{{ .Values.ingress.host }}
+{{- end }}
+
+  # Seed sample retailers/products (optional):
+  kubectl -n {{ .Release.Namespace }} run pricecheck-seed --rm -it --restart=Never \
+    --image={{ include "pricecheck.workerImage" . }} \
+    --overrides='{"spec":{"containers":[{"name":"seed","image":"{{ include "pricecheck.workerImage" . }}","command":["pnpm","db:seed"],"envFrom":[{"secretRef":{"name":"{{ include "pricecheck.envSecretName" . }}"}}]}]}}'

@@ -1,0 +1,44 @@
+@startuml architecture
+title PriceCheck — Architecture at a glance
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+skinparam ArrowColor #555555
+skinparam rectangleBorderColor #888888
+left to right direction
+
+actor "User" as user
+
+rectangle "Triggers" {
+  [CronJob\n(daily sweep)] as cron
+}
+
+rectangle "Read path" {
+  [Next.js\nweb + API] as web
+  database "Redis cache\n(latest price)" as cache
+}
+
+queue "Redis + BullMQ\n(retries · DLQ · priority)" as q
+
+rectangle "Scrape path" {
+  [Worker fleet\nper-retailer adapters\n(circuit breaker)] as worker
+  cloud "Retailer sites" as sites
+}
+
+database "Postgres\n(system of record)\noffers · price_history" as pg
+
+user --> web : browse / refresh
+web --> q : POST /api/refresh\n(priority lane)
+cron --> q : enqueue daily sweep
+q --> worker : scrape jobs
+worker ..> sites : HTTP / Playwright
+worker --> pg : idempotent upsert
+pg --> cache : hydrate latest price
+cache --> web : fast reads
+web --> pg : reads (never block on a scrape)
+
+note bottom of worker
+  One failing retailer trips only
+  its own breaker — others unaffected.
+end note
+@enduml

@@ -1,0 +1,35 @@
+@startuml scrape-flow
+title Scrape job lifecycle (apps/worker/process-scrape.ts)
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam sequenceArrowColor #555555
+
+participant "Scheduler /\n/api/refresh" as src
+queue "BullMQ\n(scrape)" as q
+participant "Worker" as w
+participant "Circuit\nbreaker" as cb
+participant "Retailer\nadapter" as a
+database "Postgres" as db
+
+src -> q : enqueue ScrapeJobData
+q -> w : deliver job (at-least-once)
+w -> cb : canRequest(retailer)?
+
+alt breaker OPEN
+  cb --> w : deny
+  w -> q : throw → retry later
+else allowed
+  w -> a : scrape(url, sku)
+  a -> a : fetch → parse → Zod validate
+  a --> w : price result
+  w -> db : recordScrape()\nidempotent upsert + price_history
+  w -> w : detectPriceAnomaly()
+  w -> db : scrape_runs (success)
+  w -> cb : recordSuccess()
+end
+
+note over q
+  Bounded retries w/ backoff+jitter;
+  exhausted jobs land in the DLQ window.
+end note
+@enduml

@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "pricecheck.fullname" . }}-scheduler
+  labels:
+    {{- include "pricecheck.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+spec:
+  schedule: {{ .Values.scheduler.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "pricecheck.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: scheduler
+        spec:
+          restartPolicy: Never
+          {{- include "pricecheck.imagePullSecrets" . | nindent 10 }}
+          containers:
+            - name: scheduler
+              image: {{ include "pricecheck.workerImage" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: ["pnpm", "scheduler"]
+              envFrom:
+                - secretRef:
+                    name: {{ include "pricecheck.envSecretName" . }}
+              resources:
+                {{- toYaml .Values.scheduler.resources | nindent 16 }}

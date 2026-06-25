@@ -1,0 +1,88 @@
+# PriceCheck Helm values.
+# Defaults target a self-contained STAGING deploy: in-cluster Postgres + Redis,
+# a chart-managed env Secret, and an nginx Ingress. Override for production
+# (external/managed Postgres, existing Secret, real host + TLS).
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  registry: ghcr.io
+  # Images are pushed as {registry}/{repository}/web and {registry}/{repository}/worker
+  # by .github/workflows/images.yml. The worker image also runs scheduler + migrations.
+  repository: calapor/pricecheck
+  tag: latest
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+# e.g. [{ name: ghcr-pull }] when pulling private GHCR images.
+
+web:
+  replicas: 1
+  port: 3000
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+worker:
+  replicas: 1
+  concurrency: 4
+  metricsPort: 9091
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 1Gi }
+
+scheduler:
+  # Daily sweep. The CronJob enqueues a scrape for every enabled offer.
+  schedule: "0 6 * * *"
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 250m, memory: 256Mi }
+
+# Pre-upgrade/-install Job that runs `pnpm db:migrate`.
+migrations:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  host: pricecheck.local
+  annotations: {}
+  tls: []
+  # - secretName: pricecheck-tls
+  #   hosts: [pricecheck.example.com]
+
+config:
+  pgPoolMax: "5"
+
+secrets:
+  # When create=true the chart builds a Secret holding DATABASE_URL + REDIS_URL
+  # (computed from postgres/redis below, or from the *Url fields when those are
+  # disabled). For production set create=false and point existingSecret at a
+  # Secret with DATABASE_URL and REDIS_URL keys.
+  create: true
+  existingSecret: ""
+  databaseUrl: "" # used only when postgres.enabled=false
+  redisUrl: "" # used only when redis.enabled=false
+
+# In-cluster Postgres (StatefulSet). STAGING ONLY — for production disable this
+# and use CloudNativePG or a managed Postgres, then supply secrets.databaseUrl /
+# secrets.existingSecret.
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  database: pricecheck
+  username: pricecheck
+  password: pricecheck
+  storage: 5Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+# In-cluster Redis (used by BullMQ + latest-price cache).
+redis:
+  enabled: true
+  image: redis:7-alpine
+  storage: 1Gi
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 256Mi }

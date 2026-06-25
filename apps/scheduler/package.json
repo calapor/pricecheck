@@ -1,0 +1,20 @@
+{
+  "name": "@pricecheck/scheduler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pricecheck/db": "workspace:*",
+    "@pricecheck/observability": "workspace:*",
+    "@pricecheck/queue": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  }
+}
