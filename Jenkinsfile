@@ -50,16 +50,22 @@ spec:
     NAMESPACE  = 'pricecheck'
   }
 
-  stages {
-    stage('Setup') {
-      steps {
-        container('node') {
-          script { env.IMAGE_TAG = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim() }
-          sh 'corepack enable && corepack prepare pnpm@11.1.1 --activate'
-        }
-      }
-    }
+stage('Setup') {
+  steps {
+    container('node') {
+      sh 'git config --global --add safe.directory "$WORKSPACE"'
 
+      script {
+        env.IMAGE_TAG = sh(
+          returnStdout: true,
+          script: 'git rev-parse --short HEAD'
+        ).trim()
+      }
+
+      sh 'corepack enable && corepack prepare pnpm@11.1.1 --activate'
+    }
+  }
+}
     stage('Install') {
       steps { container('node') { sh 'pnpm install --frozen-lockfile' } }
     }
