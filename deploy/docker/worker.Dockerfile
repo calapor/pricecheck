@@ -5,10 +5,12 @@
 # mcr.microsoft.com/playwright:v1.49.0-jammy so Chromium + deps are present.
 FROM node:22-slim
 ENV CI=true
+ENV PNPM_CONFIG_CONFIRM_MODULES_PURGE=false
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 ENV NODE_ENV=production
 RUN corepack enable
+RUN corepack prepare pnpm@11.1.1 --activate
 WORKDIR /app
 
 # Install all workspace deps (dev deps included for tsx).
