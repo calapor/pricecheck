@@ -112,7 +112,9 @@ spec:
 
     stage('Build & push images') {
       when {
-        branch 'origin/main'
+        expression {
+          env.GIT_BRANCH?.endsWith('/main')
+        }
       }
       steps {
         container('kaniko') {
@@ -132,7 +134,9 @@ spec:
 
     stage('Deploy') {
       when {
-        branch 'origin/main'
+        expression {
+          env.GIT_BRANCH?.endsWith('/main')
+        }
       }
       steps {
         container('helm') {
