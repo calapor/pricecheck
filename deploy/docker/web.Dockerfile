@@ -1,6 +1,7 @@
 # Build the Next.js web app (standalone output) from the monorepo.
 FROM node:22-slim AS base
 ENV PNPM_HOME=/pnpm
+ENV CI=true
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 WORKDIR /app
@@ -12,7 +13,7 @@ COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
 COPY packages/queue/package.json packages/queue/
 COPY packages/observability/package.json packages/observability/
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --config.confirmModulesPurge=false
 
 FROM deps AS build
 COPY . .
