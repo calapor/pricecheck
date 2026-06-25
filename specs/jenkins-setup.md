@@ -40,25 +40,28 @@ images are built on arm64 nodes and run on arm64 nodes. `next build` heap is cap
 kubectl apply -f deploy/jenkins/registry.yaml
 ```
 
-Then tell **containerd** on every node to treat `registry.pricecheck:5000` as an insecure
-mirror reachable on the registry's NodePort. On **k3s**, create `/etc/rancher/k3s/registries.yaml`
-on each node:
+Images are addressed by the **cluster IP + NodePort** (`192.168.1.101:30500`) — a single
+address that both the in-cluster builder (Kaniko) and the host-level kubelet can reach.
+Because the registry serves plain HTTP, each node needs a one-time entry telling containerd
+it's insecure. On **k3s**, create `/etc/rancher/k3s/registries.yaml` on each node:
 
 ```yaml
 mirrors:
-  "registry.pricecheck:5000":
+  "192.168.1.101:30500":
     endpoint:
-      - "http://127.0.0.1:30500"
+      - "http://192.168.1.101:30500"
 configs:
-  "registry.pricecheck:5000":
+  "192.168.1.101:30500":
     tls:
       insecure_skip_verify: true
 ```
 
-Restart k3s on each node (`sudo systemctl restart k3s` / `k3s-agent`). This is the key
-trick: Kaniko **pushes** to `registry.pricecheck:5000` via cluster DNS, and containerd
-**pulls** the same name through the mirror endpoint — so the image ref resolves on both
-sides without public DNS.
+Restart k3s on each node (`sudo systemctl restart k3s` on the control-plane node,
+`sudo systemctl restart k3s-agent` on workers). Note this entry is keyed on the **registry
+address, not the project** — you set it once and every project that pushes to this registry
+reuses it; nothing here is PriceCheck-specific. (`192.168.1.101` is this cluster's API/VIP
+address, so it's node-independent — change it to your registry's address.) In production
+you'd give the registry TLS + a resolvable name to drop the insecure entry entirely.
 
 ## 2. Deployer RBAC
 
@@ -123,10 +126,11 @@ kubectl -n pricecheck port-forward svc/pricecheck-web 3000:80   # open http://lo
 
 ## Troubleshooting
 
-- **Kaniko can't reach the registry** — confirm `kubectl -n pricecheck get svc registry`
-  and that the agent pod resolves `registry.pricecheck:5000` (cross-namespace DNS).
-- **ImagePullBackOff** — the node's `registries.yaml` mirror is missing/incorrect, or k3s
-  wasn't restarted after editing it.
+- **Kaniko can't reach the registry** — confirm the registry NodePort is up
+  (`curl http://192.168.1.101:30500/v2/_catalog`) and matches `REGISTRY` in the Jenkinsfile.
+- **ImagePullBackOff** with `dial tcp: lookup … no such host` or `http: server gave HTTP
+  response to HTTPS client`** — the node's `registries.yaml` entry is missing/incorrect, or
+  k3s wasn't restarted after editing it. It must exist on **every** node that runs the pods.
 - **`next build` OOM on a node** — lower `NODE_OPTIONS` / raise kaniko memory limits, or
   pin builds to a beefier node with a `nodeSelector` in the Jenkinsfile pod template.
 - **Kaniko arm64 issues** — swap the `kaniko` container for `quay.io/buildah/stable`

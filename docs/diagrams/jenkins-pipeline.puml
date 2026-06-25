@@ -14,7 +14,7 @@ package "Kubernetes (Raspberry Pi / arm64)" {
     [kaniko\nbuild web+worker] as kaniko
     [helm\nupgrade --install] as helmc
   }
-  database "In-cluster registry\nregistry.pricecheck:5000" as reg
+  database "In-cluster registry\n192.168.1.101:30500" as reg
   node "PriceCheck pods\nweb · worker · scheduler" as app
 }
 
@@ -23,5 +23,5 @@ jenkins --> agent : schedule build
 nodec --> kaniko : on main
 kaniko --> reg : push arm64 images
 helmc --> app : deploy
-reg --> app : containerd pulls\n(via registries.yaml mirror)
+reg --> app : containerd pulls\n(insecure registry, NodePort)
 @enduml

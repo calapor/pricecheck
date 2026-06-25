@@ -7,10 +7,14 @@ nameOverride: ""
 fullnameOverride: ""
 
 image:
-  registry: ghcr.io
-  # Images are pushed as {registry}/{repository}/web and {registry}/{repository}/worker
-  # by .github/workflows/images.yml. The worker image also runs scheduler + migrations.
-  repository: calapor/pricecheck
+  # In-cluster registry addressed by a stable node IP + NodePort, so the same ref
+  # works for the in-cluster builder (Kaniko) and the host-level kubelet pull.
+  # Nodes need a one-time, project-agnostic mirror for this address (insecure/HTTP) —
+  # see specs/jenkins-setup.md. Override with ghcr.io for the GitHub Actions path.
+  registry: 192.168.1.101:30500
+  # Images are {registry}/{repository}/web and {registry}/{repository}/worker.
+  # The worker image also runs scheduler + migrations.
+  repository: pricecheck
   tag: latest
   pullPolicy: IfNotPresent
 imagePullSecrets: []

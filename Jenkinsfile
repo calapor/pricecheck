@@ -43,7 +43,10 @@ spec:
   }
 
   environment {
-    REGISTRY   = 'registry.pricecheck:5000'
+    // In-cluster registry addressed by the cluster IP + NodePort (HTTP/insecure).
+    // The same ref works for Kaniko (in-cluster) and the kubelet pull; nodes need a
+    // one-time, project-agnostic insecure-registry entry (see specs/jenkins-setup.md).
+    REGISTRY   = '192.168.1.101:30500'
     IMAGE_REPO = 'pricecheck'
     NAMESPACE  = 'pricecheck'
   }
