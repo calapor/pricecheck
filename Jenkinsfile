@@ -40,7 +40,6 @@ spec:
   }
 
   options {
-    timestamps()
     disableConcurrentBuilds()
     timeout(time: 45, unit: 'MINUTES')   // Pi builds are slower than cloud runners
   }
