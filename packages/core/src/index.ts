@@ -1,3 +1,4 @@
+export * from "./deal";
 export * from "./money";
 export * from "./product";
 export * from "./price";

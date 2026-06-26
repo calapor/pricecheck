@@ -78,6 +78,10 @@ export const offers = pgTable(
     /** How fresh this offer should be kept, in minutes. Drives the scheduler. */
     freshnessTargetMinutes: integer("freshness_target_minutes").notNull().default(1440),
     enabled: boolean("enabled").notNull().default(true),
+    /** Deal columns — populated by recordScrape after each price write. */
+    referencePriceMinor: integer("reference_price_minor"),
+    onSale: boolean("on_sale").notNull().default(false),
+    reductionBps: integer("reduction_bps").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -85,6 +89,7 @@ export const offers = pgTable(
     retailerSkuUnique: uniqueIndex("offers_retailer_sku_unique").on(t.retailerId, t.retailerSku),
     productIdx: index("offers_product_idx").on(t.productId),
     staleIdx: index("offers_stale_idx").on(t.lastScrapedAt),
+    onSaleReductionIdx: index("offers_on_sale_reduction_idx").on(t.onSale, t.reductionBps),
   }),
 );
 
@@ -130,6 +135,19 @@ export const scrapeRuns = pgTable(
   }),
 );
 
+/** Per-offer alert subscription (single-household, no auth). */
+export const alerts = pgTable("alerts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  offerId: uuid("offer_id")
+    .notNull()
+    .unique()
+    .references(() => offers.id, { onDelete: "cascade" }),
+  enabled: boolean("enabled").notNull().default(false),
+  targetPriceMinor: integer("target_price_minor"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type Retailer = typeof retailers.$inferSelect;
 export type NewRetailer = typeof retailers.$inferInsert;
 export type Product = typeof products.$inferSelect;
@@ -138,3 +156,4 @@ export type Offer = typeof offers.$inferSelect;
 export type NewOffer = typeof offers.$inferInsert;
 export type PriceHistoryRow = typeof priceHistory.$inferSelect;
 export type ScrapeRun = typeof scrapeRuns.$inferSelect;
+export type Alert = typeof alerts.$inferSelect;
