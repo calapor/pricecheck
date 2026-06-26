@@ -17,10 +17,13 @@ RUN npm install -g pnpm@11.1.1 --force
 WORKDIR /app
 
 # Install all workspace deps (dev deps included for tsx).
+# node-linker=hoisted builds a flat, real-directory node_modules instead of pnpm's
+# symlinked store — Kaniko drops some of those symlinks when snapshotting, which left
+# pino missing transitive deps (pino-std-serializers) at runtime. Hoisted is Kaniko-safe.
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY apps ./apps
 COPY packages ./packages
-RUN pnpm install --frozen-lockfile --config.confirmModulesPurge=false
+RUN pnpm install --frozen-lockfile --config.node-linker=hoisted --config.confirmModulesPurge=false
 
 EXPOSE 9091
 # Default to the worker; override `command` in the k8s manifests for the
