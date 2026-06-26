@@ -1,5 +1,6 @@
+import { eq } from "drizzle-orm";
 import { createDb } from "./client";
-import { offers, products, retailers } from "./schema";
+import { offers, priceHistory, products, retailers } from "./schema";
 
 /**
  * Seed a demo retailer + offers. We use books.toscrape.com — a sandbox site
@@ -36,13 +37,15 @@ async function main() {
     },
   ];
 
+  const demoOfferIds: string[] = [];
+
   for (const book of demoBooks) {
     const [product] = await db
       .insert(products)
       .values({ title: book.title, category: "Books", fuzzyKey: book.title.toLowerCase() })
       .returning();
 
-    await db
+    const [offer] = await db
       .insert(offers)
       .values({
         productId: product!.id,
@@ -52,7 +55,58 @@ async function main() {
         currency: "GBP",
         freshnessTargetMinutes: 1440,
       })
-      .onConflictDoNothing({ target: [offers.retailerId, offers.retailerSku] });
+      .onConflictDoUpdate({
+        target: [offers.retailerId, offers.retailerSku],
+        set: { updatedAt: new Date() },
+      })
+      .returning();
+
+    demoOfferIds.push(offer!.id);
+  }
+
+  // Insert price history to simulate prior-high + current-low for each offer
+  const now = new Date();
+  const demoPrices = [
+    { highMinor: 1299, lowMinor: 849 },
+    { highMinor: 999, lowMinor: 699 },
+  ];
+
+  for (let i = 0; i < demoOfferIds.length; i++) {
+    const offerId = demoOfferIds[i]!;
+    const { highMinor, lowMinor } = demoPrices[i]!;
+
+    const historyRows = [50, 40, 30, 20, 10, 5, 1].map((daysAgo) => {
+      const scrapedAt = new Date(now.getTime() - daysAgo * 86_400_000);
+      // High price for older rows, drop to low price in the last week
+      const priceMinor = daysAgo > 7 ? highMinor : lowMinor;
+      return {
+        offerId,
+        priceMinor,
+        currency: "GBP",
+        inStock: true,
+        scrapedAt,
+        sourceHash: `seed-${daysAgo}`,
+        parserVersion: "seed-1.0",
+      };
+    });
+
+    await db.insert(priceHistory).values(historyRows).onConflictDoNothing();
+
+    // Set deal columns so listOnSaleOffers returns results without a live scrape
+    const reductionBps = Math.round(((highMinor - lowMinor) / highMinor) * 10000);
+    await db
+      .update(offers)
+      .set({
+        latestPriceMinor: lowMinor,
+        latestInStock: true,
+        lastScrapedAt: now,
+        lastSeenAt: now,
+        referencePriceMinor: highMinor,
+        onSale: true,
+        reductionBps,
+        updatedAt: now,
+      })
+      .where(eq(offers.id, offerId));
   }
 
   await client.end();

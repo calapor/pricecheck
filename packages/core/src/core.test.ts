@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { referenceFromHistory, computeDeal } from "./deal";
 import { parsePriceToMinor, formatMoney } from "./money";
 import { normalizeGtin, fuzzyMatchKey } from "./product";
 import { detectPriceAnomaly } from "./price";
@@ -41,6 +42,51 @@ describe("normalizeGtin", () => {
 describe("fuzzyMatchKey", () => {
   it("normalizes brand + title", () => {
     expect(fuzzyMatchKey("Sony", "WH-1000XM5 Headphones!")).toBe("sony wh 1000xm5 headphones");
+  });
+});
+
+describe("referenceFromHistory", () => {
+  it("returns the max price", () => {
+    expect(referenceFromHistory([500, 1000, 800])).toBe(1000);
+  });
+  it("handles a single price", () => {
+    expect(referenceFromHistory([750])).toBe(750);
+  });
+});
+
+describe("computeDeal", () => {
+  it("flags on-sale when discount exceeds min threshold", () => {
+    // 1000 -> 900 = 10% off = 1000 bps, threshold default 500 bps
+    const result = computeDeal(900, 1000);
+    expect(result.onSale).toBe(true);
+    expect(result.reductionBps).toBe(1000);
+  });
+  it("does not flag on-sale when discount is below threshold", () => {
+    // 1000 -> 960 = 4% off = 400 bps, below 500 bps threshold
+    const result = computeDeal(960, 1000);
+    expect(result.onSale).toBe(false);
+    expect(result.reductionBps).toBe(400);
+  });
+  it("does not flag on-sale when price equals reference", () => {
+    const result = computeDeal(1000, 1000);
+    expect(result.onSale).toBe(false);
+    expect(result.reductionBps).toBe(0);
+  });
+  it("handles exact threshold boundary (not on-sale)", () => {
+    // exactly 5% off = 500 bps; condition is strictly less-than threshold
+    const result = computeDeal(950, 1000);
+    expect(result.onSale).toBe(false);
+    expect(result.reductionBps).toBe(500);
+  });
+  it("returns no-sale for zero or negative inputs", () => {
+    expect(computeDeal(0, 1000)).toEqual({ onSale: false, reductionBps: 0 });
+    expect(computeDeal(500, 0)).toEqual({ onSale: false, reductionBps: 0 });
+  });
+  it("respects custom minReductionBps", () => {
+    // 200 bps off, threshold lowered to 100 bps
+    const result = computeDeal(980, 1000, 100);
+    expect(result.onSale).toBe(true);
+    expect(result.reductionBps).toBe(200);
   });
 });
 

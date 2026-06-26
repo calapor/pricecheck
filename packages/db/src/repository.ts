@@ -1,7 +1,8 @@
 import type { Money, ScrapeResult } from "@pricecheck/core";
-import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { computeDeal } from "@pricecheck/core";
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { Database } from "./client";
-import { offers, priceHistory, products, retailers } from "./schema";
+import { alerts, offers, priceHistory, products, retailers } from "./schema";
 
 export interface RecordScrapeOutcome {
   /** True when the price/stock changed (a new history row was written). */
@@ -52,6 +53,21 @@ export async function recordScrape(
       });
     }
 
+    const [histRef] = await tx
+      .select({ maxPrice: sql<number>`max(${priceHistory.priceMinor})` })
+      .from(priceHistory)
+      .where(
+        and(
+          eq(priceHistory.offerId, offerId),
+          sql`${priceHistory.scrapedAt} >= now() - interval '60 days'`,
+        ),
+      );
+
+    const deal =
+      histRef?.maxPrice != null
+        ? computeDeal(result.price.amountMinor, histRef.maxPrice)
+        : { onSale: false, reductionBps: 0 };
+
     await tx
       .update(offers)
       .set({
@@ -62,6 +78,9 @@ export async function recordScrape(
         lastScrapedAt: scrapedAt,
         lastSeenAt: scrapedAt,
         updatedAt: scrapedAt,
+        referencePriceMinor: histRef?.maxPrice ?? null,
+        onSale: deal.onSale,
+        reductionBps: deal.reductionBps,
       })
       .where(eq(offers.id, offerId));
 
@@ -159,4 +178,218 @@ export async function findStaleScrapeJobs(db: Database, limit = 1000): Promise<S
       ),
     )
     .limit(limit);
+}
+
+// ── Product CRUD ──────────────────────────────────────────────────────────────
+
+export interface ProductRow {
+  id: string;
+  title: string;
+  brand: string | null;
+  category: string | null;
+}
+
+export async function listProducts(db: Database): Promise<ProductRow[]> {
+  return db
+    .select({ id: products.id, title: products.title, brand: products.brand, category: products.category })
+    .from(products)
+    .orderBy(asc(products.title));
+}
+
+export async function createProduct(
+  db: Database,
+  data: { title: string; brand?: string | null; category?: string | null },
+): Promise<ProductRow> {
+  const [row] = await db
+    .insert(products)
+    .values({
+      title: data.title,
+      brand: data.brand ?? null,
+      category: data.category ?? null,
+      fuzzyKey: data.title.toLowerCase(),
+    })
+    .returning({ id: products.id, title: products.title, brand: products.brand, category: products.category });
+  return row!;
+}
+
+export async function updateProduct(
+  db: Database,
+  id: string,
+  data: { title?: string; brand?: string | null; category?: string | null },
+): Promise<boolean> {
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (data.title) { set.title = data.title; set.fuzzyKey = data.title.toLowerCase(); }
+  if ("brand" in data) set.brand = data.brand;
+  if ("category" in data) set.category = data.category;
+  const [row] = await db.update(products).set(set).where(eq(products.id, id)).returning({ id: products.id });
+  return !!row;
+}
+
+export async function deleteProduct(db: Database, id: string): Promise<boolean> {
+  const [row] = await db.delete(products).where(eq(products.id, id)).returning({ id: products.id });
+  return !!row;
+}
+
+// ── Retailer CRUD ─────────────────────────────────────────────────────────────
+
+export interface RetailerRow {
+  id: string;
+  slug: string;
+  name: string;
+  baseUrl: string;
+  enabled: boolean;
+}
+
+export async function listRetailers(db: Database): Promise<RetailerRow[]> {
+  return db
+    .select({ id: retailers.id, slug: retailers.slug, name: retailers.name, baseUrl: retailers.baseUrl, enabled: retailers.enabled })
+    .from(retailers)
+    .orderBy(asc(retailers.name));
+}
+
+function slugify(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+export async function createRetailer(
+  db: Database,
+  data: { name: string; baseUrl: string },
+): Promise<RetailerRow> {
+  const slug = slugify(data.name);
+  const [row] = await db
+    .insert(retailers)
+    .values({ name: data.name, slug, baseUrl: data.baseUrl })
+    .onConflictDoUpdate({ target: retailers.slug, set: { name: data.name, baseUrl: data.baseUrl, updatedAt: new Date() } })
+    .returning({ id: retailers.id, slug: retailers.slug, name: retailers.name, baseUrl: retailers.baseUrl, enabled: retailers.enabled });
+  return row!;
+}
+
+export async function updateRetailer(
+  db: Database,
+  id: string,
+  data: { name?: string; baseUrl?: string; enabled?: boolean },
+): Promise<boolean> {
+  const set: Record<string, unknown> = { updatedAt: new Date() };
+  if (data.name) { set.name = data.name; set.slug = slugify(data.name); }
+  if (data.baseUrl) set.baseUrl = data.baseUrl;
+  if (typeof data.enabled === "boolean") set.enabled = data.enabled;
+  const [row] = await db.update(retailers).set(set).where(eq(retailers.id, id)).returning({ id: retailers.id });
+  return !!row;
+}
+
+export async function deleteRetailer(db: Database, id: string): Promise<boolean> {
+  const [row] = await db.delete(retailers).where(eq(retailers.id, id)).returning({ id: retailers.id });
+  return !!row;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** All enabled offers (no freshness filter) — for "Refresh all" on-demand enqueue. */
+export async function listEnabledScrapeJobs(
+  db: Database,
+  limit = 1000,
+): Promise<StaleScrapeJob[]> {
+  return db
+    .select({
+      offerId: offers.id,
+      retailerId: offers.retailerId,
+      retailerSlug: retailers.slug,
+      retailerSku: offers.retailerSku,
+      productUrl: offers.productUrl,
+    })
+    .from(offers)
+    .innerJoin(retailers, eq(offers.retailerId, retailers.id))
+    .where(and(eq(offers.enabled, true), eq(retailers.enabled, true)))
+    .limit(limit);
+}
+
+export interface OnSaleListing {
+  offerId: string;
+  productTitle: string;
+  retailerName: string;
+  latestPriceMinor: number;
+  referencePriceMinor: number;
+  reductionBps: number;
+  currency: string;
+  alertEnabled: boolean;
+}
+
+type OnSaleSort = "reductionBps" | "product" | "shop" | "save";
+type SortDir = "asc" | "desc";
+
+export async function listOnSaleOffers(
+  db: Database,
+  opts: { sort?: OnSaleSort; dir?: SortDir; limit?: number } = {},
+): Promise<OnSaleListing[]> {
+  const { sort = "reductionBps", dir = "desc", limit = 100 } = opts;
+  const sortCol =
+    sort === "product"
+      ? products.title
+      : sort === "shop"
+        ? retailers.name
+        : offers.reductionBps;
+  const orderFn = dir === "asc" ? asc : desc;
+
+  return db
+    .select({
+      offerId: offers.id,
+      productTitle: products.title,
+      retailerName: retailers.name,
+      latestPriceMinor: offers.latestPriceMinor,
+      referencePriceMinor: offers.referencePriceMinor,
+      reductionBps: offers.reductionBps,
+      currency: offers.currency,
+      alertEnabled: sql<boolean>`coalesce(${alerts.enabled}, false)`,
+    })
+    .from(offers)
+    .innerJoin(products, eq(offers.productId, products.id))
+    .innerJoin(retailers, eq(offers.retailerId, retailers.id))
+    .leftJoin(alerts, eq(alerts.offerId, offers.id))
+    .where(and(eq(offers.enabled, true), eq(offers.onSale, true)))
+    .orderBy(orderFn(sortCol))
+    .limit(limit) as unknown as OnSaleListing[];
+}
+
+export async function getPriceHistorySeries(
+  db: Database,
+  offerIds: string[],
+  days = 30,
+): Promise<Map<string, { at: Date; priceMinor: number }[]>> {
+  if (offerIds.length === 0) return new Map();
+  const rows = await db
+    .select({
+      offerId: priceHistory.offerId,
+      at: priceHistory.scrapedAt,
+      priceMinor: priceHistory.priceMinor,
+    })
+    .from(priceHistory)
+    .where(
+      and(
+        inArray(priceHistory.offerId, offerIds),
+        sql`${priceHistory.scrapedAt} >= now() - ${days} * interval '1 day'`,
+      ),
+    )
+    .orderBy(priceHistory.offerId, priceHistory.scrapedAt);
+
+  const map = new Map<string, { at: Date; priceMinor: number }[]>();
+  for (const row of rows) {
+    if (!map.has(row.offerId)) map.set(row.offerId, []);
+    map.get(row.offerId)!.push({ at: row.at, priceMinor: row.priceMinor });
+  }
+  return map;
+}
+
+export async function setAlert(
+  db: Database,
+  offerId: string,
+  enabled: boolean,
+): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(alerts)
+    .values({ offerId, enabled, createdAt: now, updatedAt: now })
+    .onConflictDoUpdate({
+      target: alerts.offerId,
+      set: { enabled, updatedAt: now },
+    });
 }
