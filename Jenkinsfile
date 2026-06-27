@@ -18,14 +18,6 @@ spec:
         requests: { cpu: "500m", memory: "1Gi" }
         limits:   { cpu: "2",    memory: "2Gi" }
 
-    - name: kaniko
-      image: gcr.io/kaniko-project/executor:v1.23.2-debug
-      command: ["sleep"]
-      args: ["infinity"]
-      resources:
-        requests: { cpu: "500m", memory: "1Gi" }
-        limits:   { cpu: "2",    memory: "2.5Gi" }
-
     - name: helm
       image: alpine/helm:3.16.3
       command: ["sleep"]
@@ -34,9 +26,10 @@ spec:
         requests: { cpu: "100m", memory: "128Mi" }
         limits:   { cpu: "500m", memory: "256Mi" }
 
-    # Builds the worker image. Kaniko's snapshotter drops some of pnpm's .pnpm
-    # store symlinks (e.g. pino-std-serializers), so the worker/scheduler crash
-    # with ERR_MODULE_NOT_FOUND at runtime. Buildah preserves symlinks correctly.
+    # Builds both images. Kaniko's snapshotter drops some of pnpm's .pnpm store
+    # symlinks (e.g. pino-std-serializers), so the worker/scheduler crash with
+    # ERR_MODULE_NOT_FOUND at runtime. Buildah preserves symlinks correctly.
+    # (One builder also keeps the agent pod's summed memory requests within a Pi node.)
     - name: buildah
       image: quay.io/buildah/stable:v1.37.5
       command: ["sleep"]
@@ -133,29 +126,18 @@ spec:
         }
       }
       steps {
-        // Web bundles its deps via `next build`, so Kaniko is fine here.
-        container('kaniko') {
-          sh '''
-            /kaniko/executor \
-              --context "dir://$PWD" \
-              --dockerfile "deploy/docker/web.Dockerfile" \
-              --destination "${REGISTRY}/${IMAGE_REPO}/web:${IMAGE_TAG}" \
-              --destination "${REGISTRY}/${IMAGE_REPO}/web:main" \
-              --insecure --skip-tls-verify --cache=true
-          '''
-        }
-        // Worker runs from pnpm source; its node_modules has .pnpm store symlinks
-        // Kaniko drops (see pod template note). Buildah keeps them intact.
         container('buildah') {
           sh '''
-            buildah --storage-driver vfs bud --isolation chroot \
-              -f deploy/docker/worker.Dockerfile \
-              -t "${REGISTRY}/${IMAGE_REPO}/worker:${IMAGE_TAG}" \
-              -t "${REGISTRY}/${IMAGE_REPO}/worker:main" .
-            for tag in "${IMAGE_TAG}" main; do
-              buildah --storage-driver vfs push --tls-verify=false \
-                "${REGISTRY}/${IMAGE_REPO}/worker:${tag}" \
-                "docker://${REGISTRY}/${IMAGE_REPO}/worker:${tag}"
+            for app in web worker; do
+              buildah --storage-driver vfs bud --isolation chroot \
+                -f "deploy/docker/${app}.Dockerfile" \
+                -t "${REGISTRY}/${IMAGE_REPO}/${app}:${IMAGE_TAG}" \
+                -t "${REGISTRY}/${IMAGE_REPO}/${app}:main" .
+              for tag in "${IMAGE_TAG}" main; do
+                buildah --storage-driver vfs push --tls-verify=false \
+                  "${REGISTRY}/${IMAGE_REPO}/${app}:${tag}" \
+                  "docker://${REGISTRY}/${IMAGE_REPO}/${app}:${tag}"
+              done
             done
           '''
         }
