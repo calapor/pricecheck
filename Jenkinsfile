@@ -33,6 +33,19 @@ spec:
       resources:
         requests: { cpu: "100m", memory: "128Mi" }
         limits:   { cpu: "500m", memory: "256Mi" }
+
+    # Builds the worker image. Kaniko's snapshotter drops some of pnpm's .pnpm
+    # store symlinks (e.g. pino-std-serializers), so the worker/scheduler crash
+    # with ERR_MODULE_NOT_FOUND at runtime. Buildah preserves symlinks correctly.
+    - name: buildah
+      image: quay.io/buildah/stable:v1.37.5
+      command: ["sleep"]
+      args: ["infinity"]
+      securityContext:
+        privileged: true
+      resources:
+        requests: { cpu: "500m", memory: "1Gi" }
+        limits:   { cpu: "2",    memory: "2.5Gi" }
 '''
     }
   }
@@ -120,15 +133,29 @@ spec:
         }
       }
       steps {
+        // Web bundles its deps via `next build`, so Kaniko is fine here.
         container('kaniko') {
           sh '''
-            for app in web worker; do
-              /kaniko/executor \
-                --context "dir://$PWD" \
-                --dockerfile "deploy/docker/${app}.Dockerfile" \
-                --destination "${REGISTRY}/${IMAGE_REPO}/${app}:${IMAGE_TAG}" \
-                --destination "${REGISTRY}/${IMAGE_REPO}/${app}:main" \
-                --insecure --skip-tls-verify --cache=true
+            /kaniko/executor \
+              --context "dir://$PWD" \
+              --dockerfile "deploy/docker/web.Dockerfile" \
+              --destination "${REGISTRY}/${IMAGE_REPO}/web:${IMAGE_TAG}" \
+              --destination "${REGISTRY}/${IMAGE_REPO}/web:main" \
+              --insecure --skip-tls-verify --cache=true
+          '''
+        }
+        // Worker runs from pnpm source; its node_modules has .pnpm store symlinks
+        // Kaniko drops (see pod template note). Buildah keeps them intact.
+        container('buildah') {
+          sh '''
+            buildah --storage-driver vfs bud --isolation chroot \
+              -f deploy/docker/worker.Dockerfile \
+              -t "${REGISTRY}/${IMAGE_REPO}/worker:${IMAGE_TAG}" \
+              -t "${REGISTRY}/${IMAGE_REPO}/worker:main" .
+            for tag in "${IMAGE_TAG}" main; do
+              buildah --storage-driver vfs push --tls-verify=false \
+                "${REGISTRY}/${IMAGE_REPO}/worker:${tag}" \
+                "docker://${REGISTRY}/${IMAGE_REPO}/worker:${tag}"
             done
           '''
         }
