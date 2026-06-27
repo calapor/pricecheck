@@ -1,14 +1,11 @@
+import { createRetailer, listRetailers } from "@pricecheck/db";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { retailers } from "@pricecheck/db/schema";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const rows = await db
-    .select({ id: retailers.id, slug: retailers.slug, name: retailers.name, baseUrl: retailers.baseUrl, enabled: retailers.enabled })
-    .from(retailers)
-    .orderBy(retailers.name);
+  const rows = await listRetailers(db);
   return NextResponse.json(rows);
 }
 
@@ -26,11 +23,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "baseUrl required" }, { status: 400 });
   }
 
-  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const [row] = await db
-    .insert(retailers)
-    .values({ name: name.trim(), slug, baseUrl: baseUrl.trim() })
-    .onConflictDoUpdate({ target: retailers.slug, set: { name: name.trim(), baseUrl: baseUrl.trim(), updatedAt: new Date() } })
-    .returning({ id: retailers.id, slug: retailers.slug, name: retailers.name });
+  const row = await createRetailer(db, { name: name.trim(), baseUrl: baseUrl.trim() });
   return NextResponse.json(row, { status: 201 });
 }

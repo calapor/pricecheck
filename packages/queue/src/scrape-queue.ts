@@ -37,11 +37,12 @@ export async function enqueueScrape(
   opts: JobsOptions = {},
 ): Promise<void> {
   const priority = data.reason === "on_demand" ? PRIORITY.onDemand : PRIORITY.scheduled;
-  // De-dupe in-flight jobs for the same offer via a stable jobId.
+  // De-dupe in-flight jobs for the same offer via a stable jobId. BullMQ reserves
+  // ":" as its Redis key separator and rejects it in custom IDs, so join with "__".
   await queue.add("scrape", data, {
     ...DEFAULT_JOB_OPTS,
     priority,
-    jobId: `${data.offerId}:${data.reason}`,
+    jobId: `${data.offerId}__${data.reason}`,
     ...opts,
   });
 }

@@ -1,19 +1,12 @@
 import Link from "next/link";
+import { listProducts, listRetailers } from "@pricecheck/db";
 import { db } from "@/lib/db";
-import { products, retailers } from "@pricecheck/db/schema";
 import { ConfigureClient } from "./configure-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function ConfigurePage() {
-  const [prods, rets] = await Promise.all([
-    db.select({ id: products.id, title: products.title, brand: products.brand, category: products.category })
-      .from(products)
-      .orderBy(products.title),
-    db.select({ id: retailers.id, slug: retailers.slug, name: retailers.name, baseUrl: retailers.baseUrl, enabled: retailers.enabled })
-      .from(retailers)
-      .orderBy(retailers.name),
-  ]);
+  const [prods, rets] = await Promise.all([listProducts(db), listRetailers(db)]);
 
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-12">
