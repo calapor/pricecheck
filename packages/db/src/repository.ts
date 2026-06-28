@@ -313,7 +313,7 @@ export interface OnSaleListing {
   productTitle: string;
   retailerName: string;
   latestPriceMinor: number;
-  referencePriceMinor: number;
+  referencePriceMinor: number | null;
   reductionBps: number;
   currency: string;
   alertEnabled: boolean;
@@ -350,7 +350,7 @@ export async function listOnSaleOffers(
     .innerJoin(products, eq(offers.productId, products.id))
     .innerJoin(retailers, eq(offers.retailerId, retailers.id))
     .leftJoin(alerts, eq(alerts.offerId, offers.id))
-    .where(and(eq(offers.enabled, true), eq(offers.onSale, true)))
+    .where(eq(offers.enabled, true))
     .orderBy(orderFn(sortCol))
     .limit(limit) as unknown as OnSaleListing[];
 }

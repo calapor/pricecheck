@@ -59,7 +59,8 @@ export function DealsTable({ deals, history }: Props) {
   });
 
   const topOfferId = deals.reduce(
-    (best, d) => (d.reductionBps > (best?.reductionBps ?? -1) ? d : best),
+    (best, d) =>
+      d.reductionBps > 0 && d.reductionBps > (best?.reductionBps ?? -1) ? d : best,
     null as OnSaleListing | null,
   )?.offerId;
 
@@ -81,7 +82,7 @@ export function DealsTable({ deals, history }: Props) {
           {sorted.length === 0 && (
             <tr>
               <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
-                No deals right now. Run the worker to scrape prices.
+                No products configured yet.
               </td>
             </tr>
           )}
@@ -104,15 +105,23 @@ export function DealsTable({ deals, history }: Props) {
                   </span>
                 </td>
                 <td className="px-4 py-3 font-semibold">
-                  {formatMoney({ amountMinor: d.latestPriceMinor, currency: d.currency })}
+                  {d.latestPriceMinor != null
+                    ? formatMoney({ amountMinor: d.latestPriceMinor, currency: d.currency })
+                    : <span className="text-zinc-400">—</span>}
                 </td>
                 <td className="px-4 py-3 text-zinc-400 line-through">
-                  {formatMoney({ amountMinor: d.referencePriceMinor, currency: d.currency })}
+                  {d.referencePriceMinor != null
+                    ? formatMoney({ amountMinor: d.referencePriceMinor, currency: d.currency })
+                    : <span className="no-underline">—</span>}
                 </td>
                 <td className="px-4 py-3">
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
-                    -{savePct}%
-                  </span>
+                  {d.reductionBps > 0 ? (
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                      -{savePct}%
+                    </span>
+                  ) : (
+                    <span className="text-zinc-400">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <Sparkline points={pts} />
