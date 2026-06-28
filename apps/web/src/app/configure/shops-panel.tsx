@@ -61,9 +61,14 @@ export function ShopsPanel({ initial, onSaved }: Props) {
     if (res.ok) setAvailable(await res.json());
   }, []);
 
+  // Inline fetch on mount — avoids calling a setState-dispatching function
+  // directly inside the effect body (react-hooks/set-state-in-effect).
   useEffect(() => {
-    loadAvailable();
-  }, [loadAvailable]);
+    fetch("/api/scrapers")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: AvailableScraper[] | null) => { if (data) setAvailable(data); })
+      .catch(() => {});
+  }, []);
 
   // Slugs already added as retailers — filter them from the dropdown
   const existingSlugs = new Set(items.map((r) => r.slug));
