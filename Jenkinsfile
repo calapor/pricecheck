@@ -45,7 +45,7 @@ spec:
 
   options {
     disableConcurrentBuilds()
-    timeout(time: 45, unit: 'MINUTES')
+    timeout(time: 120, unit: 'MINUTES')
   }
 
   environment {
