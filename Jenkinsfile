@@ -159,7 +159,6 @@ spec:
               --set image.registry="${REGISTRY}" \
               --set image.repository="${IMAGE_REPO}" \
               --set image.tag="${IMAGE_TAG}" \
-              --set ingress.enabled=false \
               --wait --timeout 90m
           '''
         }
