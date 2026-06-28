@@ -1,6 +1,7 @@
 import { createProduct, listProducts } from "@pricecheck/db";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { syncOffersForProduct } from "@/lib/offers";
 
 export const dynamic = "force-dynamic";
 
@@ -25,5 +26,9 @@ export async function POST(req: Request) {
     brand: typeof brand === "string" ? brand.trim() || null : null,
     category: typeof category === "string" ? category.trim() || null : null,
   });
-  return NextResponse.json(row, { status: 201 });
+
+  // Immediately create + price offers at every configured retailer so the new
+  // product shows up on the home page with live prices (on sale or not).
+  const sync = await syncOffersForProduct(db, row.id);
+  return NextResponse.json({ ...row, sync }, { status: 201 });
 }

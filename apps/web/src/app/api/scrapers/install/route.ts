@@ -38,10 +38,13 @@ export async function POST(req: Request) {
     const result = await scraper.scrape({ url: baseUrl.trim(), retailerSku: "smoke-test" }, ctx);
     scrapeResultSchema.parse(result); // throws ZodError if shape is wrong
   } catch (err) {
-    return NextResponse.json(
-      { error: `Smoke-test scrape failed: ${err instanceof Error ? err.message : String(err)}` },
-      { status: 422 },
-    );
+    const message = err instanceof Error ? err.message : String(err);
+    // A 401/403 here is the site's bot protection (e.g. Akamai/Cloudflare), not a
+    // bug in the bundle — plain HTTP can't get past it, so flag it as unsupported.
+    const hint = /\b(401|403|forbidden|access denied)\b/i.test(message)
+      ? " — the site blocks automated access (bot protection); it needs a headless browser, which isn't supported."
+      : "";
+    return NextResponse.json({ error: `Smoke-test scrape failed: ${message}${hint}` }, { status: 422 });
   }
 
   // 3. Persist to DB — version is bumped inside upsertPlugin so worker cache invalidates

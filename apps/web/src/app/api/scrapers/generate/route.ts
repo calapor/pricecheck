@@ -47,6 +47,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "shopUrl required" }, { status: 400 });
   }
 
+  // Fail clearly if the AI key is missing rather than letting the SDK throw an
+  // opaque "Could not resolve authentication method" that surfaces as a 500.
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json(
+      { error: "ANTHROPIC_API_KEY is not set — add it to .env.local to generate scrapers." },
+      { status: 503 },
+    );
+  }
+
   // 1. Fetch the shop page HTML
   let rawHtml: string;
   try {
@@ -63,31 +72,41 @@ export async function POST(req: Request) {
   // Strip scripts/styles before sending to reduce token count; keep data attributes.
   const html = stripScriptsAndStyles(rawHtml);
 
-  // 2. Generator call
-  const genMessage = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 4096,
-    system: GENERATOR_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: GENERATOR_USER_TEMPLATE(shopUrl, html) }],
-  });
+  // 2 + 3. Generator and judge calls. Any AI failure (auth, rate limit, oversized
+  // page exceeding the context window, network) is returned as JSON so the client
+  // shows a real message instead of choking on an empty 500 body.
+  let bundleJs: string;
+  let judgeMessage: Awaited<ReturnType<typeof anthropic.messages.create>>;
+  try {
+    const genMessage = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4096,
+      system: GENERATOR_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: GENERATOR_USER_TEMPLATE(shopUrl, html) }],
+    });
 
-  const bundleJs = genMessage.content
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("");
+    bundleJs = genMessage.content
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("");
 
-  // 3. Judge call
-  const judgeMessage = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    system: JUDGE_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `Shop URL: ${shopUrl}\n\nGenerated bundle:\n\`\`\`js\n${bundleJs.slice(0, 8000)}\n\`\`\``,
-      },
-    ],
-  });
+    judgeMessage = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      system: JUDGE_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Shop URL: ${shopUrl}\n\nGenerated bundle:\n\`\`\`js\n${bundleJs.slice(0, 8000)}\n\`\`\``,
+        },
+      ],
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: `Scraper generation failed: ${err instanceof Error ? err.message : String(err)}` },
+      { status: 502 },
+    );
+  }
 
   let verdict: JudgeVerdict = {
     score: 0,

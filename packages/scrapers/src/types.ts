@@ -34,4 +34,10 @@ export interface Scraper {
   readonly strategy: ScrapeStrategy;
   readonly parserVersion: string;
   scrape(input: ScrapeInput, ctx: ScraperContext): Promise<ScrapeResult>;
+  /**
+   * Build a search-results URL for a free-text product query. Adapters that parse
+   * a retailer's search page (and take the best match) implement this so the app
+   * can create an offer for a product without a pre-known product URL.
+   */
+  searchUrl?(query: string): string;
 }

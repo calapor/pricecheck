@@ -63,6 +63,11 @@ export const supervaluScraper: Scraper = {
     const html = await fetchWithBrowserHeaders(input.url);
     return parseSupervalu(html, input.url);
   },
+
+  /** Supervalu's search page: the parser reads the first result for this query. */
+  searchUrl(query: string): string {
+    return `${BASE}/sm/delivery/rsid/${RSID}/results?q=${encodeURIComponent(query)}`;
+  },
 };
 
 /** Pure parser — accepts the raw HTML from a Supervalu search results page. */
