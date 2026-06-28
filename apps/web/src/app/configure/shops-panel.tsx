@@ -30,6 +30,21 @@ interface Props {
 
 type Mode = "idle" | "add-existing" | "generate";
 
+/**
+ * Parse a fetch Response as JSON without throwing on an empty or non-JSON body
+ * (e.g. a 500/504 with no payload), which otherwise surfaces as the opaque
+ * "JSON.parse: unexpected end of data" error.
+ */
+async function safeJson<T = Record<string, unknown>>(res: Response): Promise<T | null> {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
+
 export function ShopsPanel({ initial, onSaved }: Props) {
   const [items, setItems] = useState<Retailer[]>(initial);
   const [editing, setEditing] = useState<string | null>(null);
@@ -100,9 +115,16 @@ export function ShopsPanel({ initial, onSaved }: Props) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ shopUrl: shopUrl.trim() }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setGenerateError(data.error ?? "Generation failed");
+      const data = await safeJson<{
+        error?: string;
+        bundleJs?: string;
+        slug?: string;
+        displayName?: string;
+        baseUrl?: string;
+        verdict?: JudgeVerdict;
+      }>(res);
+      if (!res.ok || !data) {
+        setGenerateError(data?.error ?? `Generation failed (HTTP ${res.status})`);
         return;
       }
       setGeneratedBundle(data.bundleJs ?? "");
@@ -131,9 +153,9 @@ export function ShopsPanel({ initial, onSaved }: Props) {
           bundleJs: generatedBundle,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setGenerateError(data.error ?? "Install failed");
+      const data = await safeJson<{ error?: string }>(res);
+      if (!res.ok || !data) {
+        setGenerateError(data?.error ?? `Install failed (HTTP ${res.status})`);
         return;
       }
       // Plugin installed — reload available list so it appears in the dropdown

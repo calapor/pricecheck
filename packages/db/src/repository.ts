@@ -235,6 +235,15 @@ export async function deleteProduct(db: Database, id: string): Promise<boolean> 
   return !!row;
 }
 
+export async function getProduct(db: Database, id: string): Promise<ProductRow | null> {
+  const [row] = await db
+    .select({ id: products.id, title: products.title, brand: products.brand, category: products.category })
+    .from(products)
+    .where(eq(products.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
 // ── Retailer CRUD ─────────────────────────────────────────────────────────────
 
 export interface RetailerRow {
@@ -285,6 +294,45 @@ export async function updateRetailer(
 export async function deleteRetailer(db: Database, id: string): Promise<boolean> {
   const [row] = await db.delete(retailers).where(eq(retailers.id, id)).returning({ id: retailers.id });
   return !!row;
+}
+
+// ── Offers ────────────────────────────────────────────────────────────────────
+
+/**
+ * Create (or refresh the URL of) an offer linking a product to a retailer. Keyed
+ * by the unique (retailerId, retailerSku) pair so re-running is idempotent.
+ * Returns the offer id and whether a new row was inserted.
+ */
+export async function upsertOffer(
+  db: Database,
+  data: {
+    productId: string;
+    retailerId: string;
+    retailerSku: string;
+    productUrl: string;
+    currency?: string;
+  },
+): Promise<{ id: string; created: boolean }> {
+  const now = new Date();
+  const [row] = await db
+    .insert(offers)
+    .values({
+      productId: data.productId,
+      retailerId: data.retailerId,
+      retailerSku: data.retailerSku,
+      productUrl: data.productUrl,
+      currency: data.currency ?? "EUR",
+      enabled: true,
+    })
+    .onConflictDoUpdate({
+      target: [offers.retailerId, offers.retailerSku],
+      set: { productUrl: data.productUrl, enabled: true, updatedAt: now },
+    })
+    .returning({ id: offers.id, createdAt: offers.createdAt, updatedAt: offers.updatedAt });
+
+  // On a fresh insert createdAt === updatedAt; on conflict-update they diverge.
+  const created = row!.createdAt.getTime() === row!.updatedAt.getTime();
+  return { id: row!.id, created };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

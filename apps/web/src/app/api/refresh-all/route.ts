@@ -1,25 +1,16 @@
-import { listEnabledScrapeJobs } from "@pricecheck/db";
-import { enqueueScrape } from "@pricecheck/queue";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { scrapeQueue } from "@/lib/queue";
+import { syncAllOffers } from "@/lib/offers";
 
 export const dynamic = "force-dynamic";
 
-/** Enqueue on-demand refreshes for every enabled offer. */
+/**
+ * Ensure every configured product has an offer at every configured retailer, then
+ * scrape them all synchronously and persist the latest prices. Runs in-request so
+ * it works without the background worker, and backfills offers for products that
+ * were configured before any offer existed.
+ */
 export async function POST() {
-  const jobs = await listEnabledScrapeJobs(db);
-  await Promise.all(
-    jobs.map((job) =>
-      enqueueScrape(scrapeQueue, {
-        offerId: job.offerId,
-        retailerId: job.retailerId,
-        retailerSlug: job.retailerSlug,
-        retailerSku: job.retailerSku,
-        productUrl: job.productUrl,
-        reason: "on_demand",
-      }),
-    ),
-  );
-  return NextResponse.json({ queued: jobs.length });
+  const summary = await syncAllOffers(db);
+  return NextResponse.json(summary);
 }
