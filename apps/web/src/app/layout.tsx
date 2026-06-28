@@ -27,7 +27,15 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <div
+          className="fixed bottom-1 right-1.5 text-[11px] font-mono text-zinc-400 opacity-60 pointer-events-none z-[9999]"
+          title="Running build"
+        >
+          {process.env.APP_VERSION ?? "dev"}
+        </div>
+      </body>
     </html>
   );
 }

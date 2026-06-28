@@ -10,6 +10,8 @@ const PARSER_VERSION = "books-toscrape@1";
  */
 export const booksToScrapeScraper: Scraper = {
   slug: "books-toscrape",
+  displayName: "Books to Scrape (demo)",
+  baseUrl: "https://books.toscrape.com/",
   strategy: "http",
   parserVersion: PARSER_VERSION,
 

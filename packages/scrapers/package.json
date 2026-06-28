@@ -8,9 +8,11 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval": "tsx src/evals/index.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.106.0",
     "@pricecheck/core": "workspace:*",
     "@pricecheck/observability": "workspace:*",
     "cheerio": "^1.0.0"
