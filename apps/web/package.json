@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.106.0",
     "@pricecheck/core": "workspace:*",
+    "@pricecheck/scrapers": "workspace:*",
     "@pricecheck/db": "workspace:*",
     "@pricecheck/observability": "workspace:*",
     "@pricecheck/queue": "workspace:*",

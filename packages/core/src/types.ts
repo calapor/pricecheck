@@ -31,5 +31,11 @@ export const scrapeResultSchema = z.object({
   sourceHash: z.string(),
   /** Adapter version that produced this result, for provenance. */
   parserVersion: z.string(),
+  /**
+   * The retailer's own "Was" price in minor units, when explicitly shown on the
+   * page (e.g. a strike-through price). Used by recordScrape as a floor for the
+   * reference price so on-sale is detected on the very first scrape.
+   */
+  retailerOriginalPriceMinor: z.number().int().optional(),
 });
 export type ScrapeResult = z.infer<typeof scrapeResultSchema>;

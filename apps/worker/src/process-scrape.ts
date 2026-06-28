@@ -1,5 +1,5 @@
 import { detectPriceAnomaly } from "@pricecheck/core";
-import { getDb, recordScrape, scrapeRuns } from "@pricecheck/db";
+import { getDb, getPlugin, recordScrape, scrapeRuns } from "@pricecheck/db";
 import {
   logger,
   parseFailures,
@@ -9,18 +9,44 @@ import {
 } from "@pricecheck/observability";
 import {
   BreakerRegistry,
-  getScraper,
+  builtInScrapers,
+  compilePlugin,
   httpFetcher,
-  type ScraperContext,
+  makeScraperContext,
+  type Scraper,
 } from "@pricecheck/scrapers";
 import type { Job, ScrapeJobData } from "@pricecheck/queue";
+import type { Database } from "@pricecheck/db";
 
 const breakers = new BreakerRegistry(
   Number(process.env.BREAKER_THRESHOLD ?? 5),
   Number(process.env.BREAKER_COOLDOWN_MS ?? 60_000),
 );
 
-const httpCtx: ScraperContext = { fetchHtml: httpFetcher() };
+const httpCtx = makeScraperContext(httpFetcher());
+
+/** In-process cache so repeat jobs don't re-compile the same plugin from DB. */
+const pluginCache = new Map<string, { version: string; scraper: Scraper }>();
+
+/**
+ * Resolve a scraper by slug: check built-ins first, then fall back to the DB
+ * plugin table with a version-keyed cache so installs take effect without a
+ * worker restart.
+ */
+async function resolveScraper(db: Database, slug: string): Promise<Scraper> {
+  const builtIn = builtInScrapers[slug];
+  if (builtIn) return builtIn;
+
+  const row = await getPlugin(db, slug);
+  if (!row) throw new Error(`No scraper or plugin registered for "${slug}"`);
+
+  const cached = pluginCache.get(slug);
+  if (cached && cached.version === row.version) return cached.scraper;
+
+  const scraper = compilePlugin(row);
+  pluginCache.set(slug, { version: row.version, scraper });
+  return scraper;
+}
 
 /**
  * Process one scrape job: fetch -> parse -> validate -> anomaly-check -> persist.
@@ -38,9 +64,9 @@ export async function processScrape(job: Job<ScrapeJobData>): Promise<void> {
     throw new Error(`circuit breaker open for ${data.retailerSlug}`);
   }
 
-  const scraper = getScraper(data.retailerSlug);
-  const endTimer = scrapeDuration.startTimer({ retailer: data.retailerSlug });
   const db = getDb();
+  const scraper = await resolveScraper(db, data.retailerSlug);
+  const endTimer = scrapeDuration.startTimer({ retailer: data.retailerSlug });
   const startedAt = new Date();
 
   try {

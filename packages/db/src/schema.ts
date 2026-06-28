@@ -148,6 +148,19 @@ export const alerts = pgTable("alerts", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** AI-generated or user-installed scraper plugins, loaded lazily by the worker. */
+export const scraperPlugins = pgTable("scraper_plugins", {
+  slug: text("slug").primaryKey(),
+  displayName: text("display_name").notNull(),
+  baseUrl: text("base_url").notNull(),
+  bundleJs: text("bundle_js").notNull(),
+  /** Bumped on each upsert so the worker's in-process cache invalidates. */
+  version: text("version").notNull().default("1"),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type Retailer = typeof retailers.$inferSelect;
 export type NewRetailer = typeof retailers.$inferInsert;
 export type Product = typeof products.$inferSelect;
@@ -157,3 +170,5 @@ export type NewOffer = typeof offers.$inferInsert;
 export type PriceHistoryRow = typeof priceHistory.$inferSelect;
 export type ScrapeRun = typeof scrapeRuns.$inferSelect;
 export type Alert = typeof alerts.$inferSelect;
+export type ScraperPlugin = typeof scraperPlugins.$inferSelect;
+export type NewScraperPlugin = typeof scraperPlugins.$inferInsert;

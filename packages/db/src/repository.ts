@@ -2,7 +2,7 @@ import type { Money, ScrapeResult } from "@pricecheck/core";
 import { computeDeal } from "@pricecheck/core";
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { Database } from "./client";
-import { alerts, offers, priceHistory, products, retailers } from "./schema";
+import { alerts, offers, priceHistory, products, retailers, scraperPlugins } from "./schema";
 
 export interface RecordScrapeOutcome {
   /** True when the price/stock changed (a new history row was written). */
@@ -63,10 +63,15 @@ export async function recordScrape(
         ),
       );
 
-    const deal =
-      histRef?.maxPrice != null
-        ? computeDeal(result.price.amountMinor, histRef.maxPrice)
-        : { onSale: false, reductionBps: 0 };
+    // Use the larger of the 60-day history max and the retailer's own "Was" price
+    // so on-sale is detected on the very first scrape when the page shows one.
+    const referenceMinor = Math.max(
+      histRef?.maxPrice ?? 0,
+      result.retailerOriginalPriceMinor ?? 0,
+    );
+    const deal = referenceMinor > 0
+      ? computeDeal(result.price.amountMinor, referenceMinor)
+      : { onSale: false, reductionBps: 0 };
 
     await tx
       .update(offers)
@@ -78,7 +83,7 @@ export async function recordScrape(
         lastScrapedAt: scrapedAt,
         lastSeenAt: scrapedAt,
         updatedAt: scrapedAt,
-        referencePriceMinor: histRef?.maxPrice ?? null,
+        referencePriceMinor: referenceMinor || null,
         onSale: deal.onSale,
         reductionBps: deal.reductionBps,
       })
@@ -253,9 +258,9 @@ function slugify(name: string): string {
 
 export async function createRetailer(
   db: Database,
-  data: { name: string; baseUrl: string },
+  data: { name: string; baseUrl: string; slug?: string },
 ): Promise<RetailerRow> {
-  const slug = slugify(data.name);
+  const slug = data.slug ?? slugify(data.name);
   const [row] = await db
     .insert(retailers)
     .values({ name: data.name, slug, baseUrl: data.baseUrl })
@@ -391,5 +396,79 @@ export async function setAlert(
     .onConflictDoUpdate({
       target: alerts.offerId,
       set: { enabled, updatedAt: now },
+    });
+}
+
+// ── Scraper plugins ───────────────────────────────────────────────────────────
+
+export interface PluginRow {
+  slug: string;
+  displayName: string;
+  baseUrl: string;
+  bundleJs: string;
+  version: string;
+}
+
+export async function getPlugin(db: Database, slug: string): Promise<PluginRow | null> {
+  const [row] = await db
+    .select({
+      slug: scraperPlugins.slug,
+      displayName: scraperPlugins.displayName,
+      baseUrl: scraperPlugins.baseUrl,
+      bundleJs: scraperPlugins.bundleJs,
+      version: scraperPlugins.version,
+    })
+    .from(scraperPlugins)
+    .where(and(eq(scraperPlugins.slug, slug), eq(scraperPlugins.enabled, true)));
+  return row ?? null;
+}
+
+export async function getEnabledPlugins(db: Database): Promise<PluginRow[]> {
+  return db
+    .select({
+      slug: scraperPlugins.slug,
+      displayName: scraperPlugins.displayName,
+      baseUrl: scraperPlugins.baseUrl,
+      bundleJs: scraperPlugins.bundleJs,
+      version: scraperPlugins.version,
+    })
+    .from(scraperPlugins)
+    .where(eq(scraperPlugins.enabled, true))
+    .orderBy(asc(scraperPlugins.slug));
+}
+
+export async function listPlugins(
+  db: Database,
+): Promise<Array<{ slug: string; displayName: string; baseUrl: string; enabled: boolean }>> {
+  return db
+    .select({
+      slug: scraperPlugins.slug,
+      displayName: scraperPlugins.displayName,
+      baseUrl: scraperPlugins.baseUrl,
+      enabled: scraperPlugins.enabled,
+    })
+    .from(scraperPlugins)
+    .orderBy(asc(scraperPlugins.slug));
+}
+
+export async function upsertPlugin(
+  db: Database,
+  rec: { slug: string; displayName: string; baseUrl: string; bundleJs: string },
+): Promise<void> {
+  const now = new Date();
+  // Version is bumped to current timestamp so the worker's in-process cache invalidates.
+  await db
+    .insert(scraperPlugins)
+    .values({ ...rec, version: String(Date.now()), createdAt: now, updatedAt: now })
+    .onConflictDoUpdate({
+      target: scraperPlugins.slug,
+      set: {
+        displayName: rec.displayName,
+        baseUrl: rec.baseUrl,
+        bundleJs: rec.bundleJs,
+        version: String(Date.now()),
+        enabled: true,
+        updatedAt: now,
+      },
     });
 }

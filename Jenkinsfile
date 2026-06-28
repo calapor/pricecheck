@@ -131,6 +131,7 @@ spec:
             for app in web worker; do
               buildah --storage-driver vfs bud --isolation chroot \
                 -f "deploy/docker/${app}.Dockerfile" \
+                --build-arg "APP_VERSION=${IMAGE_TAG} (#${BUILD_NUMBER})" \
                 -t "${REGISTRY}/${IMAGE_REPO}/${app}:${IMAGE_TAG}" \
                 -t "${REGISTRY}/${IMAGE_REPO}/${app}:main" .
               for tag in "${IMAGE_TAG}" main; do
@@ -159,7 +160,7 @@ spec:
               --set image.repository="${IMAGE_REPO}" \
               --set image.tag="${IMAGE_TAG}" \
               --set ingress.enabled=false \
-              --wait --timeout 40m
+              --wait --timeout 90m
           '''
         }
       }
