@@ -1,6 +1,6 @@
 # PriceCheck Helm values.
 # Defaults target a self-contained STAGING deploy: in-cluster Postgres + Redis,
-# a chart-managed env Secret, and an nginx Ingress. Override for production
+# a chart-managed env Secret, and a Traefik Ingress. Override for production
 # (external/managed Postgres, existing Secret, real host + TLS).
 
 nameOverride: ""
@@ -48,8 +48,8 @@ migrations:
 
 ingress:
   enabled: true
-  className: nginx
-  host: pricecheck.local
+  className: traefik
+  host: ""
   annotations: {}
   tls: []
   # - secretName: pricecheck-tls
