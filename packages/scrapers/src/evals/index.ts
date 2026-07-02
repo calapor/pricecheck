@@ -21,7 +21,7 @@ import path from "node:path";
 import * as cheerio from "cheerio";
 import { parsePriceToMinor, contentHash } from "@pricecheck/core";
 import { compilePlugin, makeScraperContext, type ScraperContext } from "../index";
-import { GENERATOR_SYSTEM_PROMPT, GENERATOR_USER_TEMPLATE } from "../prompts/generator";
+import { GENERATOR_SYSTEM_PROMPT, GENERATOR_USER_TEMPLATE, JUDGE_USER_TEMPLATE } from "../prompts/generator";
 import { JUDGE_SYSTEM_PROMPT, type JudgeVerdict } from "../prompts/judge";
 import { httpFetcher } from "../http";
 
@@ -99,7 +99,7 @@ async function runEval(ec: EvalCase, anthropic: Anthropic): Promise<EvalResult> 
     model: "claude-sonnet-4-6",
     max_tokens: 1024,
     system: JUDGE_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: `Shop URL: ${ec.shopUrl}\n\nBundle:\n\`\`\`js\n${bundleJs.slice(0, 8000)}\n\`\`\`` }],
+    messages: [{ role: "user", content: JUDGE_USER_TEMPLATE(ec.shopUrl, bundleJs) }],
   });
   let verdict: JudgeVerdict = { score: 0, recommendation: "reject", findings: [] };
   try {
