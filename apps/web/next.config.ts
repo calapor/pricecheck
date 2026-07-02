@@ -20,6 +20,9 @@ const nextConfig: NextConfig = {
     "playwright-core",
     "playwright-extra",
     "puppeteer-extra-plugin-stealth",
+    // geoip-lite reads its GeoLite2 data files from disk via __dirname; keep it
+    // out of the bundle so those relative paths resolve at runtime.
+    "geoip-lite",
   ],
   // Self-contained server bundle for the container image.
   output: "standalone",

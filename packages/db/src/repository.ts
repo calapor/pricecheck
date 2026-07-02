@@ -2,8 +2,18 @@ import type { Money, ScrapeResult } from "@pricecheck/core";
 import { computeDeal } from "@pricecheck/core";
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { Database } from "./client";
-import { aiUsage, alerts, offers, priceHistory, products, retailers, scraperPlugins } from "./schema";
-import type { AiUsageRow } from "./schema";
+import {
+  aiUsage,
+  alerts,
+  offers,
+  priceHistory,
+  productAliases,
+  products,
+  requestLogs,
+  retailers,
+  scraperPlugins,
+} from "./schema";
+import type { AiUsageRow, RequestLogRow } from "./schema";
 
 export interface RecordScrapeOutcome {
   /** True when the price/stock changed (a new history row was written). */
@@ -26,6 +36,7 @@ export async function recordScrape(
   return db.transaction(async (tx) => {
     const [offer] = await tx
       .select({
+        productId: offers.productId,
         lastSourceHash: offers.lastSourceHash,
         latestPriceMinor: offers.latestPriceMinor,
         currency: offers.currency,
@@ -35,6 +46,15 @@ export async function recordScrape(
       .for("update");
 
     if (!offer) throw new Error(`Offer ${offerId} not found`);
+
+    // Capture a product thumbnail from the first scrape that yields one. Only set
+    // it when the product has no image yet, so a manual choice is never clobbered.
+    if (result.imageUrl) {
+      await tx
+        .update(products)
+        .set({ imageUrl: result.imageUrl })
+        .where(and(eq(products.id, offer.productId), isNull(products.imageUrl)));
+    }
 
     const previousPrice: Money | null =
       offer.latestPriceMinor != null
@@ -188,23 +208,57 @@ export async function findStaleScrapeJobs(db: Database, limit = 1000): Promise<S
 
 // ── Product CRUD ──────────────────────────────────────────────────────────────
 
+export interface ProductAliasRow {
+  id: string;
+  alias: string;
+}
+
 export interface ProductRow {
   id: string;
   title: string;
   brand: string | null;
   category: string | null;
+  imageUrl: string | null;
+  aliases: ProductAliasRow[];
+}
+
+const productCols = {
+  id: products.id,
+  title: products.title,
+  brand: products.brand,
+  category: products.category,
+  imageUrl: products.imageUrl,
+};
+
+/** Fetch and group aliases for a set of products, keyed by productId. */
+async function aliasesByProduct(
+  db: Database,
+  productIds: string[],
+): Promise<Map<string, ProductAliasRow[]>> {
+  const map = new Map<string, ProductAliasRow[]>();
+  if (productIds.length === 0) return map;
+  const rows = await db
+    .select({ id: productAliases.id, alias: productAliases.alias, productId: productAliases.productId })
+    .from(productAliases)
+    .where(inArray(productAliases.productId, productIds))
+    .orderBy(asc(productAliases.position), asc(productAliases.createdAt));
+  for (const r of rows) {
+    const list = map.get(r.productId) ?? [];
+    list.push({ id: r.id, alias: r.alias });
+    map.set(r.productId, list);
+  }
+  return map;
 }
 
 export async function listProducts(db: Database): Promise<ProductRow[]> {
-  return db
-    .select({ id: products.id, title: products.title, brand: products.brand, category: products.category })
-    .from(products)
-    .orderBy(asc(products.title));
+  const rows = await db.select(productCols).from(products).orderBy(asc(products.title));
+  const aliasMap = await aliasesByProduct(db, rows.map((r) => r.id));
+  return rows.map((r) => ({ ...r, aliases: aliasMap.get(r.id) ?? [] }));
 }
 
 export async function createProduct(
   db: Database,
-  data: { title: string; brand?: string | null; category?: string | null },
+  data: { title: string; brand?: string | null; category?: string | null; imageUrl?: string | null },
 ): Promise<ProductRow> {
   const [row] = await db
     .insert(products)
@@ -212,21 +266,23 @@ export async function createProduct(
       title: data.title,
       brand: data.brand ?? null,
       category: data.category ?? null,
+      imageUrl: data.imageUrl ?? null,
       fuzzyKey: data.title.toLowerCase(),
     })
-    .returning({ id: products.id, title: products.title, brand: products.brand, category: products.category });
-  return row!;
+    .returning(productCols);
+  return { ...row!, aliases: [] };
 }
 
 export async function updateProduct(
   db: Database,
   id: string,
-  data: { title?: string; brand?: string | null; category?: string | null },
+  data: { title?: string; brand?: string | null; category?: string | null; imageUrl?: string | null },
 ): Promise<boolean> {
   const set: Record<string, unknown> = { updatedAt: new Date() };
   if (data.title) { set.title = data.title; set.fuzzyKey = data.title.toLowerCase(); }
   if ("brand" in data) set.brand = data.brand;
   if ("category" in data) set.category = data.category;
+  if ("imageUrl" in data) set.imageUrl = data.imageUrl;
   const [row] = await db.update(products).set(set).where(eq(products.id, id)).returning({ id: products.id });
   return !!row;
 }
@@ -237,12 +293,50 @@ export async function deleteProduct(db: Database, id: string): Promise<boolean> 
 }
 
 export async function getProduct(db: Database, id: string): Promise<ProductRow | null> {
+  const [row] = await db.select(productCols).from(products).where(eq(products.id, id)).limit(1);
+  if (!row) return null;
+  const aliasMap = await aliasesByProduct(db, [id]);
+  return { ...row, aliases: aliasMap.get(id) ?? [] };
+}
+
+// ── Product aliases CRUD ──────────────────────────────────────────────────────
+
+export async function listAliases(db: Database, productId: string): Promise<ProductAliasRow[]> {
+  return (await aliasesByProduct(db, [productId])).get(productId) ?? [];
+}
+
+/** Append an alias at the end of the product's ordered list. */
+export async function addAlias(
+  db: Database,
+  productId: string,
+  alias: string,
+): Promise<ProductAliasRow> {
+  const [max] = await db
+    .select({ pos: sql<number>`coalesce(max(${productAliases.position}), -1)::int` })
+    .from(productAliases)
+    .where(eq(productAliases.productId, productId));
   const [row] = await db
-    .select({ id: products.id, title: products.title, brand: products.brand, category: products.category })
-    .from(products)
-    .where(eq(products.id, id))
-    .limit(1);
-  return row ?? null;
+    .insert(productAliases)
+    .values({ productId, alias, position: (max?.pos ?? -1) + 1 })
+    .returning({ id: productAliases.id, alias: productAliases.alias });
+  return row!;
+}
+
+export async function updateAlias(db: Database, aliasId: string, alias: string): Promise<boolean> {
+  const [row] = await db
+    .update(productAliases)
+    .set({ alias })
+    .where(eq(productAliases.id, aliasId))
+    .returning({ id: productAliases.id });
+  return !!row;
+}
+
+export async function deleteAlias(db: Database, aliasId: string): Promise<boolean> {
+  const [row] = await db
+    .delete(productAliases)
+    .where(eq(productAliases.id, aliasId))
+    .returning({ id: productAliases.id });
+  return !!row;
 }
 
 // ── Retailer CRUD ─────────────────────────────────────────────────────────────
@@ -360,6 +454,7 @@ export async function listEnabledScrapeJobs(
 export interface OnSaleListing {
   offerId: string;
   productTitle: string;
+  productImageUrl: string | null;
   retailerName: string;
   latestPriceMinor: number;
   referencePriceMinor: number | null;
@@ -388,6 +483,7 @@ export async function listOnSaleOffers(
     .select({
       offerId: offers.id,
       productTitle: products.title,
+      productImageUrl: products.imageUrl,
       retailerName: retailers.name,
       latestPriceMinor: offers.latestPriceMinor,
       referencePriceMinor: offers.referencePriceMinor,
@@ -610,4 +706,53 @@ export async function getAiUsageDaily(db: Database, days = 30): Promise<AiUsageD
 /** Most recent calls for the admin table. */
 export async function getRecentAiUsage(db: Database, limit = 20): Promise<AiUsageRow[]> {
   return db.select().from(aiUsage).orderBy(desc(aiUsage.createdAt)).limit(limit);
+}
+
+// ── Web-traffic logging ───────────────────────────────────────────────────────
+
+export interface RequestLogInput {
+  method: string;
+  path: string;
+  ip?: string | null;
+  userAgent?: string | null;
+  country?: string | null;
+  region?: string | null;
+  city?: string | null;
+}
+
+/** Log one web request. Called fire-and-forget from the middleware. */
+export async function recordRequestLog(db: Database, r: RequestLogInput): Promise<void> {
+  await db.insert(requestLogs).values({
+    method: r.method,
+    path: r.path,
+    ip: r.ip ?? null,
+    userAgent: r.userAgent ?? null,
+    country: r.country ?? null,
+    region: r.region ?? null,
+    city: r.city ?? null,
+  });
+}
+
+/** Most recent visits for the admin table. */
+export async function getRecentRequestLogs(db: Database, limit = 30): Promise<RequestLogRow[]> {
+  return db.select().from(requestLogs).orderBy(desc(requestLogs.createdAt)).limit(limit);
+}
+
+export interface CountryCount {
+  country: string;
+  visits: number;
+}
+
+/** Visit counts grouped by country over the last `days`, busiest first. */
+export async function getTopCountries(db: Database, days = 30, limit = 8): Promise<CountryCount[]> {
+  return db
+    .select({
+      country: sql<string>`coalesce(${requestLogs.country}, 'Unknown')`,
+      visits: sql<number>`count(*)::int`,
+    })
+    .from(requestLogs)
+    .where(sql`${requestLogs.createdAt} >= now() - (${days} * interval '1 day')`)
+    .groupBy(sql`coalesce(${requestLogs.country}, 'Unknown')`)
+    .orderBy(sql`count(*) desc`)
+    .limit(limit);
 }

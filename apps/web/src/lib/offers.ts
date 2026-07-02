@@ -28,35 +28,58 @@ export async function syncOffersForProduct(db: Database, productId: string): Pro
   const summary: SyncSummary = { retailers: 0, offersEnsured: 0, scraped: 0, failed: 0, errors: [] };
   if (!product) return summary;
 
-  const query = [product.brand, product.title].filter(Boolean).join(" ");
+  // Ordered search terms: the canonical "brand title" first, then each alias as
+  // its own query. A shop that names the product differently is matched by an
+  // alias when the main title finds nothing.
+  const mainQuery = [product.brand, product.title].filter(Boolean).join(" ");
+  const candidates = [mainQuery, ...product.aliases.map((a) => a.alias)].filter(Boolean);
+
   const retailers = (await listRetailers(db)).filter((r) => r.enabled);
   summary.retailers = retailers.length;
 
   for (const retailer of retailers) {
     const scraper = await resolveScraper(db, retailer.slug);
-    // Build the product URL: prefer the scraper's search page, else the base URL.
-    const productUrl = scraper?.searchUrl ? scraper.searchUrl(query) : retailer.baseUrl;
     // Deterministic per (retailer, product) key so re-syncing is idempotent.
     const retailerSku = `q:${productId}`;
 
-    const { id: offerId } = await upsertOffer(db, {
-      productId,
-      retailerId: retailer.id,
-      retailerSku,
-      productUrl,
-    });
-    summary.offersEnsured++;
+    // Try each candidate term in order, stopping at the first that yields a
+    // price. The matched search URL is stored on the offer so background
+    // re-scrapes reuse it. Only the last error surfaces if all candidates fail.
+    let scraped = false;
+    let lastError = "";
+    let offersEnsured = false;
+    for (const query of candidates) {
+      const productUrl = scraper?.searchUrl ? scraper.searchUrl(query) : retailer.baseUrl;
+      const { id: offerId } = await upsertOffer(db, {
+        productId,
+        retailerId: retailer.id,
+        retailerSku,
+        productUrl,
+      });
+      if (!offersEnsured) {
+        summary.offersEnsured++;
+        offersEnsured = true;
+      }
 
-    const res = await scrapeOfferNow(db, {
-      offerId,
-      retailerSlug: retailer.slug,
-      productUrl,
-      retailerSku,
-    });
-    if (res.ok) summary.scraped++;
+      const res = await scrapeOfferNow(db, {
+        offerId,
+        retailerSlug: retailer.slug,
+        productUrl,
+        retailerSku,
+      });
+      if (res.ok) {
+        scraped = true;
+        break;
+      }
+      lastError = res.error;
+      // The base-URL fallback has no per-query variation, so don't retry it.
+      if (!scraper?.searchUrl) break;
+    }
+
+    if (scraped) summary.scraped++;
     else {
       summary.failed++;
-      summary.errors.push(`${retailer.slug}: ${res.error}`);
+      summary.errors.push(`${retailer.slug}: ${lastError}`);
     }
   }
 

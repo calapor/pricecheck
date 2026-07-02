@@ -10,6 +10,8 @@ interface Product {
   title: string;
   brand: string | null;
   category: string | null;
+  imageUrl: string | null;
+  aliases: { id: string; alias: string }[];
 }
 
 interface Retailer {
