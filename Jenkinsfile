@@ -128,6 +128,10 @@ spec:
       steps {
         container('buildah') {
           sh '''
+            buildah --storage-driver vfs rm --all || true
+            buildah --storage-driver vfs rmi --prune || true
+          '''
+          sh '''
             for app in web worker; do
               buildah --storage-driver vfs bud --isolation chroot \
                 -f "deploy/docker/${app}.Dockerfile" \
