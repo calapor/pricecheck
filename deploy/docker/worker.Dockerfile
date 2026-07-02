@@ -1,14 +1,18 @@
 # Shared image for the worker, scheduler, and migration jobs. Runs TS via tsx
 # (internal packages are consumed from source — no per-package build step).
 #
-# NOTE: when the "browser" scrape strategy is enabled, switch the base to
-# mcr.microsoft.com/playwright:v1.49.0-jammy so Chromium + deps are present.
+# The worker's 403 → headless-browser fallback needs Chromium. We stay on node:22-slim
+# (the repo requires Node >=22; the mcr.microsoft.com/playwright images ship Node 20)
+# and install Chromium + its OS libs via `playwright install --with-deps` below, which
+# pulls the arm64 build automatically for the RPi cluster.
 FROM node:22-slim
 ENV CI=true
 ENV PNPM_CONFIG_CONFIRM_MODULES_PURGE=false
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 ENV NODE_ENV=production
+# Stable, well-known location for the downloaded Chromium (survives Kaniko snapshotting).
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 # Install pnpm as a real global binary. node:22-slim ships a dangling `pnpm`
 # corepack stub at /usr/local/bin/pnpm (resolves on PATH but fails at runtime with
 # "not found", and makes a plain `npm i -g` error with EEXIST). --force overwrites it
@@ -24,7 +28,12 @@ WORKDIR /app
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json .npmrc ./
 COPY apps ./apps
 COPY packages ./packages
-RUN pnpm install --frozen-lockfile --config.confirmModulesPurge=false
+# Skip Playwright's per-package postinstall browser download; we do one explicit,
+# deps-included install into PLAYWRIGHT_BROWSERS_PATH on the next layer instead.
+RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install --frozen-lockfile --config.confirmModulesPurge=false
+
+# Chromium + the system libraries it needs (apt) for the headless-browser fallback.
+RUN pnpm --filter @pricecheck/scrapers exec playwright install --with-deps chromium
 
 EXPOSE 9091
 # Default to the worker; override `command` in the k8s manifests for the

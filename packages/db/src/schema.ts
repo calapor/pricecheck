@@ -161,6 +161,29 @@ export const scraperPlugins = pgTable("scraper_plugins", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Per-call log of Anthropic (Claude) API usage, for the admin cost dashboard.
+ * One row per API call (generator, judge, …). Cost is stored in USD micro-dollars
+ * (1e-6 USD) as an integer to avoid float drift.
+ */
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    route: text("route").notNull(),
+    operation: text("operation").notNull(),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    costMicros: integer("cost_micros").notNull().default(0),
+  },
+  (t) => ({ createdIdx: index("ai_usage_created_idx").on(t.createdAt) }),
+);
+
+export type AiUsageRow = typeof aiUsage.$inferSelect;
+export type NewAiUsage = typeof aiUsage.$inferInsert;
+
 export type Retailer = typeof retailers.$inferSelect;
 export type NewRetailer = typeof retailers.$inferInsert;
 export type Product = typeof products.$inferSelect;

@@ -31,9 +31,11 @@ worker:
   replicas: 1
   concurrency: 4
   metricsPort: 9091
+  # Headroom for the headless-browser fallback: Chromium can use a few hundred MB
+  # per page, and up to `concurrency` scrapes may escalate at once.
   resources:
-    requests: { cpu: 100m, memory: 256Mi }
-    limits: { cpu: "1", memory: 1Gi }
+    requests: { cpu: 100m, memory: 512Mi }
+    limits: { cpu: "1", memory: 2Gi }
 
 scheduler:
   # Daily sweep. The CronJob enqueues a scrape for every enabled offer.
@@ -67,6 +69,7 @@ secrets:
   existingSecret: ""
   databaseUrl: "" # used only when postgres.enabled=false
   redisUrl: "" # used only when redis.enabled=false
+  adminPassword: "" # password for the /admin AI-usage dashboard (admin disabled if empty)
 
 # In-cluster Postgres (StatefulSet). STAGING ONLY — for production disable this
 # and use CloudNativePG or a managed Postgres, then supply secrets.databaseUrl /

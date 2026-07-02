@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { logger, renderMetrics } from "@pricecheck/observability";
 import { createScrapeWorker } from "@pricecheck/queue";
+import { closeBrowser } from "@pricecheck/scrapers/browser";
 import { processScrape } from "./process-scrape";
 
 const worker = createScrapeWorker(processScrape);
@@ -28,6 +29,7 @@ createServer(async (req, res) => {
 async function shutdown(signal: string) {
   logger.info({ signal }, "shutting down worker");
   await worker.close();
+  await closeBrowser();
   process.exit(0);
 }
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
