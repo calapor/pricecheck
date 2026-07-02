@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../docs/assets/pricecheck-logo.png" alt="PriceCheck — Smart Price Comparison App" width="480">
+</p>
+
 # 0003 — Store money as integer minor units + ISO-4217
 
 **Status:** Accepted

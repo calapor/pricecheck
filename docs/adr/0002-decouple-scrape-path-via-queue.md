@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../docs/assets/pricecheck-logo.png" alt="PriceCheck — Smart Price Comparison App" width="480">
+</p>
+
 # 0002 — Decouple the scrape path via a queue + worker fleet
 
 **Status:** Accepted

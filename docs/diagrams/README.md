@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../assets/pricecheck-logo.png" alt="PriceCheck — Smart Price Comparison App" width="480">
+</p>
+
 # Diagrams
 
 Architecture and flow diagrams are authored in **PlantUML**. The `.puml` file is the
