@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
+/* Make `dark:` utilities respond to a `.dark` class (deterministic for testing)
+   instead of only prefers-color-scheme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
