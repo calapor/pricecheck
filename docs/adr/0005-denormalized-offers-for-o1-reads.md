@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../docs/assets/pricecheck-logo.png" alt="PriceCheck — Smart Price Comparison App" width="480">
+</p>
+
 # 0005 — Denormalized `offers` current-state for O(1) reads
 
 **Status:** Accepted

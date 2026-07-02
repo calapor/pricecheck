@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../docs/assets/pricecheck-logo.png" alt="PriceCheck — Smart Price Comparison App" width="480">
+</p>
+
 # Self-Hosted Jenkins CI/CD (arm64 Raspberry Pi cluster)
 
 A fully self-hosted alternative to the GitHub Actions pipeline: Jenkins runs **on the
