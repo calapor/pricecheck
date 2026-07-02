@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/pricecheck-logo.png" alt="PriceCheck — Smart Price Comparison App" width="480">
+</p>
+
 # PriceCheck — Resilient Price-Scraping Platform
 
 [![CI](https://github.com/calapor/pricecheck/actions/workflows/ci.yml/badge.svg)](https://github.com/calapor/pricecheck/actions/workflows/ci.yml)
@@ -20,6 +24,12 @@ resilient architecture.
 
 ## 🧭 What it does
 
+- **Onboards any shop with AI** — paste a store URL and Claude inspects the page,
+  **generates a scraper**, and an AI judge validates it before it's installed as a
+  sandboxed plugin. New retailers are added without hand-writing an adapter, in any
+  region or currency. See [`specs/user-flows.md`](specs/user-flows.md#add-a-new-shop-via-ai).
+- Runs scraping as a **horizontally-scalable worker fleet on Kubernetes**, decoupled from
+  the read path behind a durable queue. See [`specs/architecture.md`](specs/architecture.md).
 - Scrapes a configurable set of retailers on a **daily schedule**, plus **on-demand
   refresh** for hot items.
 - Normalises prices to integer **minor units** + ISO-4217 currency (never floats).
@@ -55,8 +65,8 @@ with a senior engineer steering and reviewing:
 | **Harden** | Resolved dependency skew, lazy DB/queue init, green CI across 8 packages | Verified pipeline goes green |
 | **Deploy** | Authored Dockerfiles, Helm chart, GitHub Actions (CI + image build + deploy) | Owns cluster secrets/cutover |
 
-The prompts that drove this work live in [`prompts/`](prompts/), and the key decisions
-are captured as ADRs in [`docs/adr/`](docs/adr/).
+AI prompts used to drive the work are collected under [`prompts/`](prompts/), and the key
+architectural decisions are captured as ADRs in [`docs/adr/`](docs/adr/).
 
 ## 🧱 Tech stack
 
@@ -88,7 +98,11 @@ deploy/
   docker/         web + worker Dockerfiles
   helm/pricecheck Helm chart
 .github/workflows ci.yml · images.yml · deploy.yml
-specs/            architecture, ci-cd-pipeline, (more to come)
+specs/            product-overview, architecture, data-models, user-flows,
+                  ai-rules, design-system, ci-cd-pipeline, deployment, jenkins-setup
+docs/adr/         architecture decision records
+docs/diagrams/    PlantUML sources + rendered PNGs
+prompts/          AI prompts used across the SDLC
 ```
 
 ## 🚀 Getting started
@@ -126,3 +140,17 @@ pnpm -r build       # next build (standalone)
 - [ ] KEDA autoscaling, `price_history` partitioning, price-drop alerts
 
 Full phased plan and verification steps are in [`specs/architecture.md`](specs/architecture.md).
+
+## 📚 Documentation
+
+| Doc | What it covers |
+|-----|----------------|
+| [`specs/product-overview.md`](specs/product-overview.md) | What PriceCheck is, capabilities, users, out-of-scope |
+| [`specs/architecture.md`](specs/architecture.md) | Worker fleet on k8s, decoupled queue, resilience & scale |
+| [`specs/data-models.md`](specs/data-models.md) | Entities, deal columns, money-as-minor-units |
+| [`specs/user-flows.md`](specs/user-flows.md) | On Sale Now, Configure, **Add a shop via AI** |
+| [`specs/ai-rules.md`](specs/ai-rules.md) | Engineering conventions incl. AI generate→judge loop |
+| [`specs/design-system.md`](specs/design-system.md) | Brand + UI conventions |
+| [`specs/ci-cd-pipeline.md`](specs/ci-cd-pipeline.md) · [`specs/deployment.md`](specs/deployment.md) · [`specs/jenkins-setup.md`](specs/jenkins-setup.md) | Pipeline & deploy |
+| [`docs/adr/`](docs/adr/) | Architecture Decision Records |
+| [`docs/diagrams/`](docs/diagrams/) | PlantUML sources + rendered diagrams |
