@@ -9,6 +9,8 @@ queue "BullMQ\n(scrape)" as q
 participant "Worker" as w
 participant "Circuit\nbreaker" as cb
 participant "Retailer\nadapter" as a
+participant "HTTP\nfetcher" as http
+participant "Browser\nfetcher\n(stealth)" as browser
 database "Postgres" as db
 
 src -> q : enqueue ScrapeJobData
@@ -20,7 +22,17 @@ alt breaker OPEN
   w -> q : throw → retry later
 else allowed
   w -> a : scrape(url, sku)
-  a -> a : fetch → parse → Zod validate
+  a -> http : fetchHtml(url)
+
+  alt HTTP 401 / 403 / bot-block
+    http --> a : throw bot-block error
+    a -> browser : fetchHtml(url) [playwright-stealth]
+    browser --> a : HTML
+  else HTTP success
+    http --> a : HTML
+  end
+
+  a -> a : parse → Zod validate
   a --> w : price result
   w -> db : recordScrape()\nidempotent upsert + price_history
   w -> w : detectPriceAnomaly()
@@ -31,5 +43,12 @@ end
 note over q
   Bounded retries w/ backoff+jitter;
   exhausted jobs land in the DLQ window.
+end note
+
+note over browser
+  Lazy singleton — Chromium only
+  launches on first bot-block.
+  Per-origin context reuse preserves
+  session cookies + JS-challenge tokens.
 end note
 @enduml
