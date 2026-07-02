@@ -175,6 +175,15 @@ spec:
   }
 
   post {
+    always {
+      container('buildah') {
+        sh '''
+          buildah --storage-driver vfs rm --all || true
+          buildah --storage-driver vfs rmi --all || true
+        '''
+      }
+    }
+
     success {
       echo "Deployed pricecheck @ ${env.IMAGE_TAG}"
     }
