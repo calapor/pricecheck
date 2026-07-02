@@ -17,6 +17,8 @@ export default async function Home() {
     history[offerId] = pts.map((p) => ({ at: p.at.toISOString(), priceMinor: p.priceMinor }));
   }
 
+  const now = Date.now();
+
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-12">
       <AppHeader active="deals" />
@@ -26,7 +28,7 @@ export default async function Home() {
       </div>
 
       <footer className="mt-6 flex items-center justify-between text-xs text-zinc-400">
-        <UpdatedAt at={Date.now()} />
+        <UpdatedAt at={now} />
         <RefreshAllButton />
       </footer>
     </main>
