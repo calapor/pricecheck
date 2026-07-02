@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { formatMoney } from "@pricecheck/core";
 import type { OnSaleListing } from "@pricecheck/db";
-import { AlertToggle } from "./alert-toggle";
 import { Sparkline } from "./sparkline";
 
 type SortKey = "product" | "shop" | "save";
@@ -40,6 +39,10 @@ interface Props {
 export function DealsTable({ deals, history }: Props) {
   const [sort, setSort] = useState<SortKey>("save");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
+  const [shopFilter, setShopFilter] = useState<string | null>(null);
+
+  const shops = [...new Set(deals.map((d) => d.retailerName))].sort();
+  const multiShop = shops.length > 1;
 
   function toggleSort(key: SortKey) {
     if (sort === key) {
@@ -50,7 +53,9 @@ export function DealsTable({ deals, history }: Props) {
     }
   }
 
-  const sorted = [...deals].sort((a, b) => {
+  const filtered = shopFilter ? deals.filter((d) => d.retailerName === shopFilter) : deals;
+
+  const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
     if (sort === "product") cmp = a.productTitle.localeCompare(b.productTitle);
     else if (sort === "shop") cmp = a.retailerName.localeCompare(b.retailerName);
@@ -65,6 +70,34 @@ export function DealsTable({ deals, history }: Props) {
   )?.offerId;
 
   return (
+    <div>
+      {multiShop && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <button
+            onClick={() => setShopFilter(null)}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              shopFilter === null
+                ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+            }`}
+          >
+            All
+          </button>
+          {shops.map((shop) => (
+            <button
+              key={shop}
+              onClick={() => setShopFilter(shop)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                shopFilter === shop
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+              }`}
+            >
+              {shop}
+            </button>
+          ))}
+        </div>
+      )}
     <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
       <table className="w-full text-sm">
         <thead className="bg-zinc-50 text-left text-zinc-500 dark:bg-zinc-900">
@@ -75,13 +108,12 @@ export function DealsTable({ deals, history }: Props) {
             <th className="px-4 py-2 font-medium">Was</th>
             <SortHeader label="Save" col="save" active={sort === "save"} dir={dir} onToggle={toggleSort} />
             <th className="px-4 py-2 font-medium">30d</th>
-            <th className="px-4 py-2 font-medium">Alert</th>
           </tr>
         </thead>
         <tbody>
           {sorted.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
+              <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
                 No products configured yet.
               </td>
             </tr>
@@ -126,14 +158,12 @@ export function DealsTable({ deals, history }: Props) {
                 <td className="px-4 py-3">
                   <Sparkline points={pts} />
                 </td>
-                <td className="px-4 py-3">
-                  <AlertToggle offerId={d.offerId} initialEnabled={d.alertEnabled} />
-                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }
