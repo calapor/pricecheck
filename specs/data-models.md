@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../docs/assets/pricecheck-logo.png" alt="PriceCheck — Smart Price Comparison App" width="480">
+</p>
+
 # Data Models
 
 Source of truth: [`packages/db/src/schema.ts`](../packages/db/src/schema.ts) (Drizzle +

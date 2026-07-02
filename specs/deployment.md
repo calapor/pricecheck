@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../docs/assets/pricecheck-logo.png" alt="PriceCheck — Smart Price Comparison App" width="480">
+</p>
+
 # Deployment
 
 PriceCheck deploys to a Kubernetes cluster via the Helm chart in

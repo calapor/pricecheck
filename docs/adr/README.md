@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../docs/assets/pricecheck-logo.png" alt="PriceCheck — Smart Price Comparison App" width="480">
+</p>
+
 # Architecture Decision Records
 
 Each ADR captures one significant decision in [Michael Nygard's format](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions):
