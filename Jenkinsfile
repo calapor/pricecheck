@@ -153,14 +153,17 @@ spec:
       }
       steps {
         container('helm') {
-          sh '''
-            helm upgrade --install pricecheck deploy/helm/pricecheck \
-              --namespace "${NAMESPACE}" --create-namespace \
-              --set image.registry="${REGISTRY}" \
-              --set image.repository="${IMAGE_REPO}" \
-              --set image.tag="${IMAGE_TAG}" \
-              --wait --timeout 90m
-          '''
+          withCredentials([string(credentialsId: 'postgres-password', variable: 'PG_PASSWORD')]) {
+            sh '''
+              helm upgrade --install pricecheck deploy/helm/pricecheck \
+                --namespace "${NAMESPACE}" --create-namespace \
+                --set image.registry="${REGISTRY}" \
+                --set image.repository="${IMAGE_REPO}" \
+                --set image.tag="${IMAGE_TAG}" \
+                --set postgres.password="${PG_PASSWORD}" \
+                --wait --timeout 90m
+            '''
+          }
         }
       }
     }
