@@ -37,6 +37,13 @@ export const priceAnomalies = new Counter({
   registers: [registry],
 });
 
+export const browserFallbacks = new Counter({
+  name: "pricecheck_scrape_browser_fallbacks_total",
+  help: "Times the HTTP fetch was blocked (401/403) and escalated to the headless browser",
+  labelNames: ["host"] as const,
+  registers: [registry],
+});
+
 /** Serialize all metrics for an HTTP `/metrics` handler. */
 export async function renderMetrics(): Promise<{ contentType: string; body: string }> {
   return { contentType: registry.contentType, body: await registry.metrics() };

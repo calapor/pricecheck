@@ -11,10 +11,12 @@ import {
   BreakerRegistry,
   builtInScrapers,
   compilePlugin,
+  escalatingFetcher,
   httpFetcher,
   makeScraperContext,
   type Scraper,
 } from "@pricecheck/scrapers";
+import { browserFetcher } from "@pricecheck/scrapers/browser";
 import type { Job, ScrapeJobData } from "@pricecheck/queue";
 import type { Database } from "@pricecheck/db";
 
@@ -23,7 +25,9 @@ const breakers = new BreakerRegistry(
   Number(process.env.BREAKER_COOLDOWN_MS ?? 60_000),
 );
 
-const httpCtx = makeScraperContext(httpFetcher());
+// HTTP first, then transparently escalate to the stealth browser on a 401/403.
+// The browser is lazy, so a worker that never hits a bot wall never launches Chromium.
+const scrapeCtx = makeScraperContext(escalatingFetcher(httpFetcher(), browserFetcher()));
 
 /** In-process cache so repeat jobs don't re-compile the same plugin from DB. */
 const pluginCache = new Map<string, { version: string; scraper: Scraper }>();
@@ -72,7 +76,7 @@ export async function processScrape(job: Job<ScrapeJobData>): Promise<void> {
   try {
     const result = await scraper.scrape(
       { url: data.productUrl, retailerSku: data.retailerSku },
-      httpCtx,
+      scrapeCtx,
     );
 
     const { changed, previousPrice } = await recordScrape(db, data.offerId, result);

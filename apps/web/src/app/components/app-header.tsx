@@ -1,9 +1,19 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export function AppHeader({ active }: { active: "deals" | "configure" }) {
   return (
     <header className="flex items-center justify-between">
-      <span className="text-lg font-semibold tracking-tight">PriceCheck</span>
+      <Link href="/" aria-label="PriceCheck">
+        <Image
+          src="/pricecheck-logo.png"
+          alt="PriceCheck"
+          width={160}
+          height={32}
+          className="h-8 w-auto"
+          priority
+        />
+      </Link>
       <nav className="flex gap-1">
         <Link
           href="/"

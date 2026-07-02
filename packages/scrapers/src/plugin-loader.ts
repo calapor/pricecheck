@@ -52,5 +52,8 @@ export function compilePlugin(rec: PluginRecord): Scraper {
     strategy: (exp.strategy as Scraper["strategy"]) ?? "http",
     parserVersion: exp.parserVersion ?? `${rec.slug}@plugin-${rec.version}`,
     scrape: exp.scrape.bind(exp),
+    // Preserve the optional search-URL builder so the smoke-test and offer creation
+    // can drive the shop's search page by product name.
+    ...(typeof exp.searchUrl === "function" ? { searchUrl: exp.searchUrl.bind(exp) } : {}),
   };
 }

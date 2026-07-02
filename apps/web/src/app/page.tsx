@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { AppHeader } from "./components/app-header";
 import { DealsTable } from "./components/deals-table";
 import { RefreshAllButton } from "./components/refresh-all-button";
+import { UpdatedAt } from "./components/updated-at";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export default async function Home() {
       </div>
 
       <footer className="mt-6 flex items-center justify-between text-xs text-zinc-400">
-        <span>Refreshed daily, or on demand.</span>
+        <UpdatedAt at={Date.now()} />
         <RefreshAllButton />
       </footer>
     </main>

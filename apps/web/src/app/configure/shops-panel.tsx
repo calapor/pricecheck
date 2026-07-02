@@ -63,6 +63,7 @@ export function ShopsPanel({ initial, onSaved }: Props) {
   const [generatedDisplayName, setGeneratedDisplayName] = useState("");
   const [generatedBaseUrl, setGeneratedBaseUrl] = useState("");
   const [verdict, setVerdict] = useState<JudgeVerdict | null>(null);
+  const [smokeQuery, setSmokeQuery] = useState("Alpro Barista Almond");
   const [installing, setInstalling] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
@@ -151,6 +152,7 @@ export function ShopsPanel({ initial, onSaved }: Props) {
           displayName: generatedDisplayName,
           baseUrl: generatedBaseUrl,
           bundleJs: generatedBundle,
+          query: smokeQuery.trim(),
         }),
       });
       const data = await safeJson<{ error?: string }>(res);
@@ -331,6 +333,19 @@ export function ShopsPanel({ initial, onSaved }: Props) {
                   onChange={(e) => setGeneratedBundle(e.target.value)}
                   rows={10}
                   className="w-full rounded border border-zinc-300 px-2 py-1 font-mono text-[11px] dark:border-zinc-700 dark:bg-zinc-900"
+                />
+              </div>
+
+              {/* Smoke-test search term: validates the scraper against a real product */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-zinc-500">
+                  Test search term (smoke-tests the scraper against a real product)
+                </label>
+                <input
+                  placeholder="e.g. Alpro Barista Almond"
+                  value={smokeQuery}
+                  onChange={(e) => setSmokeQuery(e.target.value)}
+                  className="w-full rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
                 />
               </div>
 

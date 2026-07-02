@@ -5,7 +5,11 @@ import {
   JUDGE_SYSTEM_PROMPT,
   type JudgeVerdict,
 } from "@pricecheck/scrapers";
+import { recordAiUsage } from "@pricecheck/db";
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+
+const MODEL = "claude-sonnet-4-6";
 
 // Anthropic SDK throws at call time if the key is missing/invalid.
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? "" });
@@ -79,7 +83,7 @@ export async function POST(req: Request) {
   let judgeMessage: Awaited<ReturnType<typeof anthropic.messages.create>>;
   try {
     const genMessage = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
+      model: MODEL,
       max_tokens: 4096,
       system: GENERATOR_SYSTEM_PROMPT,
       messages: [{ role: "user", content: GENERATOR_USER_TEMPLATE(shopUrl, html) }],
@@ -91,7 +95,7 @@ export async function POST(req: Request) {
       .join("");
 
     judgeMessage = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
+      model: MODEL,
       max_tokens: 1024,
       system: JUDGE_SYSTEM_PROMPT,
       messages: [
@@ -101,6 +105,25 @@ export async function POST(req: Request) {
         },
       ],
     });
+
+    // Log token usage/cost for the admin dashboard — awaited so both rows land before the
+    // response returns (fire-and-forget races request teardown), but never fail generation.
+    await Promise.all([
+      recordAiUsage(db, {
+        route: "scrapers/generate",
+        operation: "generate",
+        model: MODEL,
+        inputTokens: genMessage.usage.input_tokens,
+        outputTokens: genMessage.usage.output_tokens,
+      }),
+      recordAiUsage(db, {
+        route: "scrapers/generate",
+        operation: "judge",
+        model: MODEL,
+        inputTokens: judgeMessage.usage.input_tokens,
+        outputTokens: judgeMessage.usage.output_tokens,
+      }),
+    ]).catch(() => undefined);
   } catch (err) {
     return NextResponse.json(
       { error: `Scraper generation failed: ${err instanceof Error ? err.message : String(err)}` },

@@ -2,7 +2,8 @@ import type { Money, ScrapeResult } from "@pricecheck/core";
 import { computeDeal } from "@pricecheck/core";
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { Database } from "./client";
-import { alerts, offers, priceHistory, products, retailers, scraperPlugins } from "./schema";
+import { aiUsage, alerts, offers, priceHistory, products, retailers, scraperPlugins } from "./schema";
+import type { AiUsageRow } from "./schema";
 
 export interface RecordScrapeOutcome {
   /** True when the price/stock changed (a new history row was written). */
@@ -519,4 +520,94 @@ export async function upsertPlugin(
         updatedAt: now,
       },
     });
+}
+
+// ── AI usage / cost ─────────────────────────────────────────────────────────────
+
+/**
+ * Anthropic list price per MILLION tokens, in USD, keyed by model. Kept here so the
+ * cost dashboard has a single source of truth; update when Anthropic pricing changes.
+ * Unknown models fall back to Sonnet-class pricing.
+ */
+export const AI_PRICING: Record<string, { inputPerMTok: number; outputPerMTok: number }> = {
+  "claude-sonnet-4-6": { inputPerMTok: 3, outputPerMTok: 15 },
+  "claude-opus-4-8": { inputPerMTok: 15, outputPerMTok: 75 },
+  "claude-haiku-4-5": { inputPerMTok: 1, outputPerMTok: 5 },
+};
+const DEFAULT_PRICING = { inputPerMTok: 3, outputPerMTok: 15 };
+
+/** USD micro-dollars (1e-6 USD) for a call, so we can store an integer. */
+export function estimateCostMicros(model: string, inputTokens: number, outputTokens: number): number {
+  const p = AI_PRICING[model] ?? DEFAULT_PRICING;
+  const usd = (inputTokens / 1e6) * p.inputPerMTok + (outputTokens / 1e6) * p.outputPerMTok;
+  return Math.round(usd * 1e6);
+}
+
+export interface AiUsageInput {
+  route: string;
+  operation: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/** Log one Anthropic API call. Cost is derived from {@link AI_PRICING}. */
+export async function recordAiUsage(db: Database, u: AiUsageInput): Promise<void> {
+  await db.insert(aiUsage).values({
+    route: u.route,
+    operation: u.operation,
+    model: u.model,
+    inputTokens: u.inputTokens,
+    outputTokens: u.outputTokens,
+    costMicros: estimateCostMicros(u.model, u.inputTokens, u.outputTokens),
+  });
+}
+
+export interface AiUsageSummary {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  costMicros: number;
+}
+
+/** All-time totals plus the last `days` window, for the admin header cards. */
+export async function getAiUsageSummary(db: Database): Promise<AiUsageSummary> {
+  const [row] = await db
+    .select({
+      calls: sql<number>`count(*)::int`,
+      inputTokens: sql<number>`coalesce(sum(${aiUsage.inputTokens}), 0)::int`,
+      outputTokens: sql<number>`coalesce(sum(${aiUsage.outputTokens}), 0)::int`,
+      costMicros: sql<number>`coalesce(sum(${aiUsage.costMicros}), 0)::int`,
+    })
+    .from(aiUsage);
+  return row ?? { calls: 0, inputTokens: 0, outputTokens: 0, costMicros: 0 };
+}
+
+export interface AiUsageDailyPoint {
+  day: string;
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  costMicros: number;
+}
+
+/** Per-day usage buckets for the last `days`, oldest first — feeds the usage chart. */
+export async function getAiUsageDaily(db: Database, days = 30): Promise<AiUsageDailyPoint[]> {
+  return db
+    .select({
+      day: sql<string>`to_char(date_trunc('day', ${aiUsage.createdAt}), 'YYYY-MM-DD')`,
+      calls: sql<number>`count(*)::int`,
+      inputTokens: sql<number>`coalesce(sum(${aiUsage.inputTokens}), 0)::int`,
+      outputTokens: sql<number>`coalesce(sum(${aiUsage.outputTokens}), 0)::int`,
+      costMicros: sql<number>`coalesce(sum(${aiUsage.costMicros}), 0)::int`,
+    })
+    .from(aiUsage)
+    .where(sql`${aiUsage.createdAt} >= now() - (${days} * interval '1 day')`)
+    .groupBy(sql`date_trunc('day', ${aiUsage.createdAt})`)
+    .orderBy(sql`date_trunc('day', ${aiUsage.createdAt}) asc`);
+}
+
+/** Most recent calls for the admin table. */
+export async function getRecentAiUsage(db: Database, limit = 20): Promise<AiUsageRow[]> {
+  return db.select().from(aiUsage).orderBy(desc(aiUsage.createdAt)).limit(limit);
 }
