@@ -17,3 +17,4 @@ decision supersedes rather than edits an earlier one.
 | [0005](0005-denormalized-offers-for-o1-reads.md) | Denormalized `offers` current-state for O(1) reads | Accepted |
 | [0006](0006-dual-cicd-github-actions-or-jenkins.md) | Dual CI/CD: GitHub Actions or self-hosted Jenkins | Accepted |
 | [0007](0007-ai-generated-scraper-plugins.md) | AI-generated scraper plugins (generate → judge → sandbox) | Accepted |
+| [0008](0008-headless-browser-fallback.md) | Headless browser fallback for bot-blocked retailers | Accepted |

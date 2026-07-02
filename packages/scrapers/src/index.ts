@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./html";
 export * from "./http";
 // NOTE: "./browser" is intentionally NOT re-exported here — it pulls in Playwright +
 // the stealth plugin, which must never load in the web bundle (it breaks Next's

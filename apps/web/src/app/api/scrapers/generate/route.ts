@@ -3,6 +3,8 @@ import {
   GENERATOR_SYSTEM_PROMPT,
   GENERATOR_USER_TEMPLATE,
   JUDGE_SYSTEM_PROMPT,
+  JUDGE_USER_TEMPLATE,
+  stripScriptsAndStyles,
   type JudgeVerdict,
 } from "@pricecheck/scrapers";
 import { recordAiUsage } from "@pricecheck/db";
@@ -20,12 +22,6 @@ const BROWSER_HEADERS = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   "accept-language": "en-IE,en;q=0.9",
 };
-
-function stripScriptsAndStyles(html: string): string {
-  return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "");
-}
 
 /** Extract slug/displayName/baseUrl from the METADATA comment the generator embeds. */
 function extractMetadata(
@@ -51,6 +47,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "shopUrl required" }, { status: 400 });
   }
 
+  // Reject non-HTTP(S) schemes before fetching or interpolating into prompts.
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(shopUrl.trim());
+  } catch {
+    return NextResponse.json({ error: "shopUrl must be a valid URL" }, { status: 400 });
+  }
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    return NextResponse.json({ error: "shopUrl must use http or https" }, { status: 400 });
+  }
+
   // Fail clearly if the AI key is missing rather than letting the SDK throw an
   // opaque "Could not resolve authentication method" that surfaces as a 500.
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -63,7 +70,7 @@ export async function POST(req: Request) {
   // 1. Fetch the shop page HTML
   let rawHtml: string;
   try {
-    const res = await fetch(shopUrl.trim(), { headers: BROWSER_HEADERS });
+    const res = await fetch(parsedUrl.href, { headers: BROWSER_HEADERS });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     rawHtml = await res.text();
   } catch (err) {
@@ -73,7 +80,8 @@ export async function POST(req: Request) {
     );
   }
 
-  // Strip scripts/styles before sending to reduce token count; keep data attributes.
+  // Strip scripts, styles, and HTML comments before sending to reduce token count
+  // and remove common prompt-injection vectors in page content.
   const html = stripScriptsAndStyles(rawHtml);
 
   // 2 + 3. Generator and judge calls. Any AI failure (auth, rate limit, oversized
@@ -98,12 +106,7 @@ export async function POST(req: Request) {
       model: MODEL,
       max_tokens: 1024,
       system: JUDGE_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `Shop URL: ${shopUrl}\n\nGenerated bundle:\n\`\`\`js\n${bundleJs.slice(0, 8000)}\n\`\`\``,
-        },
-      ],
+      messages: [{ role: "user", content: JUDGE_USER_TEMPLATE(shopUrl, bundleJs) }],
     });
 
     // Log token usage/cost for the admin dashboard — awaited so both rows land before the

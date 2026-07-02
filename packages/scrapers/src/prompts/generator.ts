@@ -90,4 +90,7 @@ baseUrl should be the shop's root URL ending with /.
 Output ONLY the JavaScript bundle — no markdown fences, no explanation.`;
 
 export const GENERATOR_USER_TEMPLATE = (shopUrl: string, html: string) =>
-  `Shop URL: ${shopUrl}\n\nPage HTML (truncated to ~30k chars):\n${html.slice(0, 30000)}`;
+  `<shop-url>${shopUrl}</shop-url>\n\n<page-html>\n${html.slice(0, 30000)}\n</page-html>`;
+
+export const JUDGE_USER_TEMPLATE = (shopUrl: string, bundleJs: string) =>
+  `<shop-url>${shopUrl}</shop-url>\n\n<generated-bundle>\n\`\`\`js\n${bundleJs.slice(0, 8000)}\n\`\`\`\n</generated-bundle>`;
