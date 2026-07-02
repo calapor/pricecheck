@@ -1,0 +1,68 @@
+# Weekly registry retention + garbage collection.
+#
+# The in-cluster registry (registry.yaml) never reclaims space on its own: every
+# push to `main` adds an immutable per-commit tag (pricecheck/web:<sha>,
+# pricecheck/worker:<sha>) that is kept forever, and overwriting the `main` tag
+# orphans the previous manifest's blobs. registry:2 only frees blobs when
+# `garbage-collect` is run, and only for manifests that no tag references — so
+# without pruning old tags first, GC reclaims almost nothing and the PVC on the
+# node hosting registry-data (local-path -> rpi2) grows until builds fail with
+# "no space left on device".
+#
+# This CronJob mounts the same registry-data PVC (local-path RWO schedules it onto
+# the registry's node automatically), keeps `main` + the newest KEEP per-commit
+# tags for each repo, deletes the rest, then runs GC with --delete-untagged.
+# Builds are serialized (disableConcurrentBuilds) and infrequent, so running GC
+# against the live registry at a quiet hour is safe here.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: registry-gc
+  namespace: pricecheck
+  labels: { app: registry-gc }
+spec:
+  schedule: "0 4 * * 0"            # Sundays 04:00
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels: { app: registry-gc }
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: gc
+              image: registry:2.8.3
+              env:
+                - name: KEEP           # per-commit tags to retain per repo (plus `main`)
+                  value: "5"
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  ROOT=/var/lib/registry/docker/registry/v2/repositories
+                  echo "Retention: keep 'main' + newest ${KEEP} tags per repo"
+                  for repo in pricecheck/web pricecheck/worker; do
+                    tagdir="$ROOT/$repo/_manifests/tags"
+                    [ -d "$tagdir" ] || { echo "  $repo: no tags"; continue; }
+                    # newest-first, drop `main`, skip the newest KEEP, delete the rest
+                    ls -1t "$tagdir" | grep -v '^main$' | tail -n +$((KEEP + 1)) | while read -r t; do
+                      echo "  $repo: deleting tag $t"
+                      rm -rf "$tagdir/$t"
+                    done
+                  done
+                  echo "Running garbage-collect --delete-untagged"
+                  registry garbage-collect --delete-untagged /etc/docker/registry/config.yml
+              volumeMounts:
+                - name: data
+                  mountPath: /var/lib/registry
+              resources:
+                requests: { cpu: "50m", memory: "128Mi" }
+                limits:   { cpu: "500m", memory: "512Mi" }
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: registry-data
