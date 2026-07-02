@@ -124,12 +124,24 @@ export function DealsTable({ deals, history }: Props) {
             return (
               <tr key={d.offerId} className="border-t border-zinc-100 dark:border-zinc-800">
                 <td className="px-4 py-3">
-                  <span className="font-medium">{d.productTitle}</span>
-                  {d.offerId === topOfferId && (
-                    <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
-                      Top deal
-                    </span>
-                  )}
+                  <span className="flex items-center gap-2">
+                    {d.productImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={d.productImageUrl}
+                        alt={d.productTitle}
+                        className="h-8 w-8 shrink-0 rounded object-cover"
+                      />
+                    ) : (
+                      <span className="h-8 w-8 shrink-0 rounded bg-zinc-100 dark:bg-zinc-800" aria-hidden />
+                    )}
+                    <span className="font-medium">{d.productTitle}</span>
+                    {d.offerId === topOfferId && (
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                        Top deal
+                      </span>
+                    )}
+                  </span>
                 </td>
                 <td className="px-4 py-3">
                   <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">

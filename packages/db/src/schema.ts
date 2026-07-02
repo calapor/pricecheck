@@ -54,6 +54,27 @@ export const products = pgTable(
 );
 
 /**
+ * Alternative names for a product. Different shops name the same item slightly
+ * differently; when the canonical `products.title` finds no match at a shop, the
+ * sync path retries the search with each alias (ordered by `position`).
+ */
+export const productAliases = pgTable(
+  "product_aliases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    alias: text("alias").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    productIdx: index("product_aliases_product_idx").on(t.productId),
+  }),
+);
+
+/**
  * A product *at a retailer*. Holds denormalized "current state" (`latest*`) for
  * O(1) reads on the UI path, plus `lastSourceHash` for idempotent upserts.
  */
@@ -184,10 +205,35 @@ export const aiUsage = pgTable(
 export type AiUsageRow = typeof aiUsage.$inferSelect;
 export type NewAiUsage = typeof aiUsage.$inferInsert;
 
+/**
+ * Per-request web-traffic log, for the admin dashboard. Populated by the Next.js
+ * middleware with the client IP (from X-Forwarded-For) and offline geolocation.
+ */
+export const requestLogs = pgTable(
+  "request_logs",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    method: text("method").notNull(),
+    path: text("path").notNull(),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    country: text("country"),
+    region: text("region"),
+    city: text("city"),
+  },
+  (t) => ({ createdIdx: index("request_logs_created_idx").on(t.createdAt) }),
+);
+
+export type RequestLogRow = typeof requestLogs.$inferSelect;
+export type NewRequestLog = typeof requestLogs.$inferInsert;
+
 export type Retailer = typeof retailers.$inferSelect;
 export type NewRetailer = typeof retailers.$inferInsert;
 export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;
+export type ProductAlias = typeof productAliases.$inferSelect;
+export type NewProductAlias = typeof productAliases.$inferInsert;
 export type Offer = typeof offers.$inferSelect;
 export type NewOffer = typeof offers.$inferInsert;
 export type PriceHistoryRow = typeof priceHistory.$inferSelect;
