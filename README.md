@@ -22,6 +22,11 @@ resilient architecture.
 
 ---
 
+> **Portfolio documentation** — AI-leveraged SDLC, prompt engineering lifecycle, scraper evaluation framework, and engineering decision log:
+> 📄 [docs/portfolio/README.md](docs/portfolio/README.md)
+
+---
+
 ## 🧭 What it does
 
 - **Onboards any shop with AI** — paste a store URL and Claude inspects the page,
@@ -51,22 +56,6 @@ resilient architecture.
 
 See [`specs/architecture.md`](specs/architecture.md) for the full diagram, data model,
 resilience and scalability patterns.
-
-## 🤖 AI-leveraged SDLC (the portfolio angle)
-
-This repo was designed and built with an AI agent (Claude) driving each SDLC stage,
-with a senior engineer steering and reviewing:
-
-| Stage | How AI was used | Human-in-the-loop |
-|-------|-----------------|-------------------|
-| **Design** | Generated the architecture from requirements, surfaced trade-offs (build-vs-buy scraping, serverless vs k8s) as explicit decisions | Chose scale, infra (own k8s), self-host scraping |
-| **Build** | Scaffolded the monorepo, data model, scraper adapters, queue + worker | Reviewed contracts and conventions |
-| **Test** | Wrote fixture/contract/unit tests; caught a real **zero-decimal currency** parsing bug | Confirmed coverage targets |
-| **Harden** | Resolved dependency skew, lazy DB/queue init, green CI across 8 packages | Verified pipeline goes green |
-| **Deploy** | Authored Dockerfiles, Helm chart, GitHub Actions (CI + image build + deploy) | Owns cluster secrets/cutover |
-
-AI prompts used to drive the work are collected under [`prompts/`](prompts/), and the key
-architectural decisions are captured as ADRs in [`docs/adr/`](docs/adr/).
 
 ## 🧱 Tech stack
 
@@ -152,5 +141,6 @@ Full phased plan and verification steps are in [`specs/architecture.md`](specs/a
 | [`specs/ai-rules.md`](specs/ai-rules.md) | Engineering conventions incl. AI generate→judge loop |
 | [`specs/design-system.md`](specs/design-system.md) | Brand + UI conventions |
 | [`specs/ci-cd-pipeline.md`](specs/ci-cd-pipeline.md) · [`specs/deployment.md`](specs/deployment.md) · [`specs/jenkins-setup.md`](specs/jenkins-setup.md) | Pipeline & deploy |
+| [`docs/portfolio/README.md`](docs/portfolio/README.md) | AI-leveraged SDLC, prompt engineering, evaluation framework, decision log |
 | [`docs/adr/`](docs/adr/) | Architecture Decision Records |
 | [`docs/diagrams/`](docs/diagrams/) | PlantUML sources + rendered diagrams |
