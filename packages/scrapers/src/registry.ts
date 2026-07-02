@@ -1,10 +1,8 @@
-import { booksToScrapeScraper } from "./adapters/books-toscrape";
 import { supervaluScraper } from "./adapters/supervalu";
 import type { Scraper } from "./types";
 
 /** All built-in adapters, keyed by retailer slug. Add new built-ins here. */
 export const builtInScrapers: Record<string, Scraper> = {
-  [booksToScrapeScraper.slug]: booksToScrapeScraper,
   [supervaluScraper.slug]: supervaluScraper,
 };
 

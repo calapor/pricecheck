@@ -10,5 +10,4 @@ export * from "./context";
 export * from "./plugin-loader";
 export * from "./prompts/generator";
 export * from "./prompts/judge";
-export { parseBooksToScrape } from "./adapters/books-toscrape";
 export { parseSupervalu } from "./adapters/supervalu";
