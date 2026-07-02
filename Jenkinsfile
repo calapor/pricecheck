@@ -37,7 +37,12 @@ spec:
       securityContext:
         privileged: true
       resources:
-        requests: { cpu: "500m", memory: "1Gi" }
+        # ephemeral-storage request routes the agent onto a node with enough free
+        # disk for the vfs build scratch (vfs copies every layer in full; the
+        # worker image alone — Node + pnpm store + Playwright/Chromium — needs
+        # several GB). Without it the pod can land on a nearly-full node and the
+        # build dies with "no space left on device".
+        requests: { cpu: "500m", memory: "1Gi",   ephemeral-storage: "12Gi" }
         limits:   { cpu: "2",    memory: "2.5Gi" }
 '''
     }
@@ -143,6 +148,11 @@ spec:
                   "${REGISTRY}/${IMAGE_REPO}/${app}:${tag}" \
                   "docker://${REGISTRY}/${IMAGE_REPO}/${app}:${tag}"
               done
+              # Reclaim this image's vfs layers before building the next app —
+              # otherwise web + worker scratch accumulate in the agent pod and the
+              # second build runs the node out of disk mid-layer.
+              buildah --storage-driver vfs rm --all || true
+              buildah --storage-driver vfs rmi --all || true
             done
           '''
         }
