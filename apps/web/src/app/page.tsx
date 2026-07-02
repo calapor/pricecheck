@@ -7,6 +7,8 @@ import { UpdatedAt } from "./components/updated-at";
 
 export const dynamic = "force-dynamic";
 
+const getNow = () => Date.now();
+
 export default async function Home() {
   const deals = await listOnSaleOffers(db);
   const offerIds = deals.map((d) => d.offerId);
@@ -17,7 +19,7 @@ export default async function Home() {
     history[offerId] = pts.map((p) => ({ at: p.at.toISOString(), priceMinor: p.priceMinor }));
   }
 
-  const now = Date.now();
+  const now = getNow();
 
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-12">
