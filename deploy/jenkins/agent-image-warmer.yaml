@@ -1,0 +1,77 @@
+# Keeps the Jenkins agent base images warm on every node.
+#
+# The Kubernetes agent pod template (see Jenkinsfile) has no nodeSelector, so the
+# scheduler places each build on whichever node fits. Its 4 base images are large
+# (node ~399MB, buildah ~188MB, inbound-agent ~150MB, helm ~31MB) and the per-node
+# image cache is populated only as builds happen to land there — so a build on a
+# cold node stalls in ContainerCreating for many minutes (node:22-bookworm alone
+# takes ~5 min to pull on a Pi) while the pod sits unready.
+#
+# This DaemonSet pre-pulls all 4 images on every node via one initContainer each,
+# then parks a tiny pause container to keep the pod Running. Because the pod keeps
+# existing, kubelet's image GC treats every one of its (init + main) container
+# images as "in use" and will not evict them — even under later disk pressure — so
+# the cache stays warm and agents start in seconds regardless of placement.
+#
+# COUPLING: the image list below must be kept in sync with the agent pod template
+# in the Jenkinsfile. When you bump a base image tag there, bump it here too.
+#
+# Footprint: ~770MB of images held resident per node (well within the ~29GB
+# allocatable ephemeral storage on each Pi).
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: agent-image-warmer
+  namespace: jenkins
+  labels: { app: agent-image-warmer }
+spec:
+  selector:
+    matchLabels: { app: agent-image-warmer }
+  template:
+    metadata:
+      labels: { app: agent-image-warmer }
+    spec:
+      # Warm the control-plane node too, in case it is ever tainted NoSchedule.
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+      # Each initContainer just forces kubelet to pull (IfNotPresent) and hold its
+      # image; the trivial command exits immediately. No privileges are needed to
+      # merely cache the buildah image.
+      initContainers:
+        - name: warm-node
+          image: node:22-bookworm
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "exit 0"]
+          resources:
+            requests: { cpu: "10m", memory: "16Mi" }
+            limits:   { cpu: "50m", memory: "32Mi" }
+        - name: warm-helm
+          image: alpine/helm:3.16.3
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "exit 0"]
+          resources:
+            requests: { cpu: "10m", memory: "16Mi" }
+            limits:   { cpu: "50m", memory: "32Mi" }
+        - name: warm-buildah
+          image: quay.io/buildah/stable:v1.37.5
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "exit 0"]
+          resources:
+            requests: { cpu: "10m", memory: "16Mi" }
+            limits:   { cpu: "50m", memory: "32Mi" }
+        - name: warm-jnlp
+          image: jenkins/inbound-agent:3355.v388858a_47b_33-3-jdk21
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "exit 0"]
+          resources:
+            requests: { cpu: "10m", memory: "16Mi" }
+            limits:   { cpu: "50m", memory: "32Mi" }
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.9
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests: { cpu: "10m", memory: "16Mi" }
+            limits:   { cpu: "50m", memory: "16Mi" }

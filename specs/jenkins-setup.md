@@ -74,6 +74,19 @@ kubectl create namespace jenkins
 kubectl apply -f deploy/jenkins/rbac.yaml
 ```
 
+### 2b. Warm the agent base images
+
+```bash
+kubectl apply -f deploy/jenkins/agent-image-warmer.yaml
+```
+
+The Kubernetes agent pod (see `Jenkinsfile`) has no `nodeSelector`, so a build lands on any
+node. Its 4 base images are large, and a build on a node with a cold cache stalls in
+`ContainerCreating` for minutes while they pull (`node:22-bookworm` alone is ~5 min on a Pi).
+This DaemonSet pre-pulls all 4 on **every** node and keeps them resident, so agents start in
+seconds regardless of placement. Its image list must be kept in sync with the pod template in
+the `Jenkinsfile` — when you bump a base image tag there, bump it here too.
+
 ## 3. Jenkins (Helm chart)
 
 ```bash
