@@ -167,7 +167,10 @@ spec:
       }
       steps {
         container('helm') {
-          withCredentials([string(credentialsId: 'postgres-password', variable: 'PG_PASSWORD')]) {
+          withCredentials([
+            string(credentialsId: 'postgres-password', variable: 'PG_PASSWORD'),
+            string(credentialsId: 'anthropic-api-key', variable: 'ANTHROPIC_KEY'),
+          ]) {
             sh '''
               # An interrupted prior deploy (aborted job, evicted node, or the
               # pipeline timeout firing mid --wait) leaves the release in a
@@ -194,6 +197,7 @@ spec:
                 --set image.repository="${IMAGE_REPO}" \
                 --set image.tag="${IMAGE_TAG}" \
                 --set postgres.password="${PG_PASSWORD}" \
+                --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
                 --wait --timeout 90m
             '''
           }
