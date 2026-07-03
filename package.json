@@ -15,6 +15,8 @@
     "db:generate": "pnpm --filter @pricecheck/db generate",
     "db:migrate": "pnpm --filter @pricecheck/db migrate",
     "db:seed": "pnpm --filter @pricecheck/db seed",
+    "db:seed:reset": "SEED_RESET=1 pnpm --filter @pricecheck/db seed",
+    "db:export-fixture": "pnpm --filter @pricecheck/db export-fixture",
     "worker": "pnpm --filter @pricecheck/worker start",
     "scheduler": "pnpm --filter @pricecheck/scheduler start"
   },

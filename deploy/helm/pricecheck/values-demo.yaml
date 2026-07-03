@@ -1,0 +1,23 @@
+# Overlay for the showcase "demo" release. Deploy as a *second* Helm release named
+# `pricecheck-demo` (see Jenkinsfile), which auto-namespaces every resource — its
+# own Postgres/Redis, disposable and isolated from the real release:
+#
+#   helm upgrade --install pricecheck-demo deploy/helm/pricecheck \
+#     -f deploy/helm/pricecheck/values-demo.yaml --set image.tag=<tag> ...
+#
+# Reachable at http://<node-ip>:30090. Runs the full live pipeline (worker +
+# scheduler) on the seeded SuperValu data.
+
+# No public hostname for the demo — expose it directly on a node port instead.
+ingress:
+  enabled: false
+
+web:
+  service:
+    type: NodePort
+    nodePort: 30090
+
+demo:
+  mode: true # enable the /admin reseed button + endpoint
+  seed:
+    enabled: true # reseed the SuperValu sample data on every deploy
