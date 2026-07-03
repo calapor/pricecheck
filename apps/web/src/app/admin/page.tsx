@@ -8,7 +8,7 @@ import {
 import { db } from "@/lib/db";
 import { isAdmin } from "@/lib/admin-auth";
 import { AppHeader } from "../components/app-header";
-import { AdminLogin, AdminLogout } from "./admin-login";
+import { AdminLogin, AdminLogout, ReseedDemoButton } from "./admin-login";
 import { UsageChart } from "./usage-chart";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +53,10 @@ export default async function AdminPage() {
       <AppHeader active="admin" />
       <div className="mt-8 flex items-center justify-between">
         <h1 className="text-lg font-semibold tracking-tight">Admin · AI usage</h1>
-        <AdminLogout />
+        <div className="flex items-center gap-3">
+          {process.env.DEMO_MODE === "true" && <ReseedDemoButton />}
+          <AdminLogout />
+        </div>
       </div>
 
       {/* Summary cards */}

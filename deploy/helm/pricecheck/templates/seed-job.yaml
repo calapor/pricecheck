@@ -1,0 +1,49 @@
+{{- if .Values.demo.seed.enabled }}
+# Demo-only. Loads the SuperValu sample dataset (`pnpm db:seed` with SEED_RESET=1)
+# after every install/upgrade, so redeploying the demo refreshes its data. Runs at
+# hook-weight 1 — after the migrate Job (weight 0) has created the schema.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "pricecheck.fullname" . }}-seed
+  labels:
+    {{- include "pricecheck.labels" . | nindent 4 }}
+    app.kubernetes.io/component: seed
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "pricecheck.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: seed
+    spec:
+      restartPolicy: Never
+      {{- include "pricecheck.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.postgres.enabled }}
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.postgres.image }}
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h {{ include "pricecheck.fullname" . }}-postgres -p 5432 -U {{ .Values.postgres.username | quote }}; do
+                echo "waiting for postgres..."; sleep 2;
+              done
+      {{- end }}
+      containers:
+        - name: seed
+          image: {{ include "pricecheck.workerImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["pnpm", "db:seed"]
+          env:
+            - name: SEED_RESET
+              value: "1"
+          envFrom:
+            - secretRef:
+                name: {{ include "pricecheck.envSecretName" . }}
+{{- end }}

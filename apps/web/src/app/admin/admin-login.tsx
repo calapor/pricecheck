@@ -64,3 +64,23 @@ export function AdminLogout() {
     </button>
   );
 }
+
+/** Demo-only: wipe and reload the SuperValu sample data. */
+export function ReseedDemoButton() {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        setBusy(true);
+        await fetch("/api/admin/reseed", { method: "POST" }).catch(() => null);
+        setBusy(false);
+        router.refresh();
+      }}
+      disabled={busy}
+      className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:hover:bg-zinc-800"
+    >
+      {busy ? "Reseeding…" : "Reseed demo data"}
+    </button>
+  );
+}
