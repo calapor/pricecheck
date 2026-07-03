@@ -41,7 +41,7 @@ spec:
       # merely cache the buildah image.
       initContainers:
         - name: warm-node
-          image: node:22-bookworm
+          image: 192.168.1.101:30500/pricecheck/node-pnpm:22
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c", "exit 0"]
           resources:
