@@ -11,7 +11,7 @@ spec:
     fsGroup: 1000
   containers:
     - name: node
-      image: 192.168.1.101:30500/pricecheck/node-pnpm:22
+      image: node:22-bookworm
       command: ["sleep"]
       args: ["infinity"]
       resources:
@@ -76,7 +76,7 @@ spec:
             ).trim()
           }
 
-          sh 'pnpm --version'
+          sh 'corepack enable && corepack prepare pnpm@11.1.1 --activate'
         }
       }
     }
