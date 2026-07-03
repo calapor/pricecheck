@@ -59,6 +59,11 @@ spec:
       defaultValue: true,
       description: 'Also deploy the showcase "pricecheck-demo" release (NodePort 30090, seeded SuperValu sample data).'
     )
+    string(
+      name: 'GENERATOR_MAX_TOKENS',
+      defaultValue: '16000',
+      description: 'Max output tokens for the AI scraper generator (GENERATOR_MAX_TOKENS env var on the web pod).'
+    )
   }
 
   environment {
@@ -206,6 +211,7 @@ spec:
                 --set image.tag="${IMAGE_TAG}" \
                 --set postgres.password="${PG_PASSWORD}" \
                 --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
+                --set config.generatorMaxTokens="${GENERATOR_MAX_TOKENS}" \
                 --wait --timeout 90m
             '''
 
