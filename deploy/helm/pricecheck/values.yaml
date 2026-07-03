@@ -23,6 +23,11 @@ imagePullSecrets: []
 web:
   replicas: 1
   port: 3000
+  # ClusterIP by default (fronted by the Ingress). The demo overlay switches this
+  # to NodePort so the showcase is reachable at http://<node-ip>:<nodePort>.
+  service:
+    type: ClusterIP
+    nodePort: "" # only used when type=NodePort
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { cpu: "1", memory: 512Mi }
@@ -59,6 +64,16 @@ ingress:
 
 config:
   pgPoolMax: "5"
+
+# Showcase/demo instance. Off by default so the real release is unaffected; the
+# demo overlay (values-demo.yaml) turns these on for the `pricecheck-demo` release.
+demo:
+  # Injected as DEMO_MODE; gates the /admin "reseed" button + endpoint.
+  mode: false
+  seed:
+    # Adds a post-install/-upgrade Job that loads the SuperValu sample dataset
+    # (with reset), so every redeploy refreshes the demo data.
+    enabled: false
 
 secrets:
   # When create=true the chart builds a Secret holding DATABASE_URL + REDIS_URL

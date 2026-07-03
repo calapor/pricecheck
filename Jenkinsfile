@@ -53,6 +53,14 @@ spec:
     timeout(time: 120, unit: 'MINUTES')
   }
 
+  parameters {
+    booleanParam(
+      name: 'DEPLOY_DEMO',
+      defaultValue: true,
+      description: 'Also deploy the showcase "pricecheck-demo" release (NodePort 30090, seeded SuperValu sample data).'
+    )
+  }
+
   environment {
     // In-cluster registry addressed by the cluster IP + NodePort (HTTP/insecure).
     // The same ref works for Kaniko (in-cluster) and the kubelet pull; nodes need a
@@ -200,6 +208,38 @@ spec:
                 --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
                 --wait --timeout 90m
             '''
+
+            script {
+              if (params.DEPLOY_DEMO) {
+                // The showcase demo is a second, self-contained release (its own
+                // Postgres/Redis, NodePort 30090, seeded SuperValu sample data).
+                sh '''
+                  # Same interrupted-deploy recovery as the main release above.
+                  STATUS=$(helm status pricecheck-demo -n "${NAMESPACE}" -o json 2>/dev/null \
+                    | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+                  case "${STATUS}" in
+                    pending-install)
+                      echo "Demo release stuck in pending-install — uninstalling."
+                      helm uninstall pricecheck-demo -n "${NAMESPACE}" --wait || true
+                      ;;
+                    pending-upgrade|pending-rollback)
+                      echo "Demo release stuck in ${STATUS} — rolling back."
+                      helm rollback pricecheck-demo -n "${NAMESPACE}" --wait --timeout 5m || true
+                      ;;
+                  esac
+
+                  helm upgrade --install pricecheck-demo deploy/helm/pricecheck \
+                    --namespace "${NAMESPACE}" --create-namespace \
+                    -f deploy/helm/pricecheck/values-demo.yaml \
+                    --set image.registry="${REGISTRY}" \
+                    --set image.repository="${IMAGE_REPO}" \
+                    --set image.tag="${IMAGE_TAG}" \
+                    --set postgres.password="${PG_PASSWORD}" \
+                    --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
+                    --wait --timeout 90m
+                '''
+              }
+            }
           }
         }
       }
