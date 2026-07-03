@@ -55,6 +55,23 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+          lifecycle:
+            postStart:
+              exec:
+                # POSTGRES_PASSWORD is only applied when initdb first creates an
+                # empty PVC. Without this, rotating postgres.password leaves the role
+                # on its original password while DATABASE_URL carries the new one, so
+                # app/migrate auth fails with 28P01 (BackoffLimitExceeded). Reconcile
+                # the role password to the Secret on every start, over the local unix
+                # socket (initdb --auth-local trust — no password needed).
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    until pg_isready -U "$POSTGRES_USER" -h /var/run/postgresql -q; do sleep 2; done
+                    psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+                      -h /var/run/postgresql \
+                      -c "ALTER USER \"$POSTGRES_USER\" WITH PASSWORD '$POSTGRES_PASSWORD'"
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", {{ .Values.postgres.username | quote }}, "-d", {{ .Values.postgres.database | quote }}]
