@@ -70,6 +70,7 @@ secrets:
   databaseUrl: "" # used only when postgres.enabled=false
   redisUrl: "" # used only when redis.enabled=false
   adminPassword: "" # password for the /admin AI-usage dashboard (admin disabled if empty)
+  anthropicApiKey: "" # Anthropic API key for scraper generation (feature disabled if empty)
 
 # In-cluster Postgres (StatefulSet). STAGING ONLY — for production disable this
 # and use CloudNativePG or a managed Postgres, then supply secrets.databaseUrl /
