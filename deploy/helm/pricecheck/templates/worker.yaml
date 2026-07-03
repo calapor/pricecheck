@@ -7,6 +7,13 @@ metadata:
     app.kubernetes.io/component: worker
 spec:
   replicas: {{ .Values.worker.replicas }}
+  # Recreate (not RollingUpdate): terminate the old worker before starting the
+  # new one so a rollout never needs a transient 2x memory footprint. On the tight
+  # Pi nodes a surge pod would sit Pending (Insufficient memory), blocking the old
+  # pod's termination and failing the Helm upgrade with "context deadline exceeded".
+  # A background worker tolerates the brief gap; the user-facing web keeps its surge.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "pricecheck.selectorLabels" . | nindent 6 }}
