@@ -2,6 +2,14 @@ packages:
   - apps/*
   - packages/*
 
+# clone-deep@0.2.4 (pulled in by merge-deep → puppeteer-extra-plugin → stealth plugin)
+# requires is-plain-object at runtime but forgot to declare it as a dependency.
+# packageExtensions injects the missing dep so pnpm installs and exposes it.
+packageExtensions:
+  "clone-deep@0.2.4":
+    dependencies:
+      "is-plain-object": "^2.0.4"
+
 allowBuilds:
   esbuild: false
   msgpackr-extract: false
