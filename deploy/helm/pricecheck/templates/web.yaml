@@ -34,6 +34,8 @@ spec:
               value: {{ .Values.config.pgPoolMax | quote }}
             - name: DEMO_MODE
               value: {{ .Values.demo.mode | quote }}
+            - name: GENERATOR_MAX_TOKENS
+              value: {{ .Values.config.generatorMaxTokens | quote }}
           envFrom:
             - secretRef:
                 name: {{ include "pricecheck.envSecretName" . }}

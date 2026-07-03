@@ -15,6 +15,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 const MODEL = "claude-sonnet-4-6";
+const GENERATOR_MAX_TOKENS = parseInt(process.env.GENERATOR_MAX_TOKENS ?? "16000", 10);
 
 // Anthropic SDK throws at call time if the key is missing/invalid.
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? "" });
@@ -111,8 +112,8 @@ export async function POST(req: Request) {
       // A complete scraper bundle (JSON paths + ld+json + DOM fallback + on-sale
       // handling) routinely runs past 4k output tokens; too tight a cap truncates the
       // scrape() mid-function and the judge rejects it as "incomplete" (as happened
-      // for Tesco). Give it real headroom.
-      max_tokens: 8000,
+      // for Tesco). Configurable via GENERATOR_MAX_TOKENS env var; default 16 000.
+      max_tokens: GENERATOR_MAX_TOKENS,
       system: GENERATOR_SYSTEM_PROMPT,
       messages: [{ role: "user", content: GENERATOR_USER_TEMPLATE(shopUrl, html) }],
     });

@@ -64,6 +64,7 @@ ingress:
 
 config:
   pgPoolMax: "5"
+  generatorMaxTokens: "16000"
 
 # Showcase/demo instance. Off by default so the real release is unaffected; the
 # demo overlay (values-demo.yaml) turns these on for the `pricecheck-demo` release.
