@@ -4,9 +4,12 @@ import {
   GENERATOR_USER_TEMPLATE,
   JUDGE_SYSTEM_PROMPT,
   JUDGE_USER_TEMPLATE,
+  escalatingFetcher,
   stripScriptsAndStyles,
+  type HtmlFetcher,
   type JudgeVerdict,
 } from "@pricecheck/scrapers";
+import { browserFetcher } from "@pricecheck/scrapers/browser";
 import { recordAiUsage } from "@pricecheck/db";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -21,6 +24,19 @@ const BROWSER_HEADERS = {
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   "accept-language": "en-IE,en;q=0.9",
+};
+
+/**
+ * Plain-HTTP fetch of the shop page with browser-like headers. On a bot-wall status
+ * it throws a message containing the code (e.g. "HTTP 403") so {@link escalatingFetcher}
+ * can recognise it and hand off to the stealth headless browser — the same 401/403 →
+ * browser path the worker and install smoke-test use. Without this, shops behind
+ * Cloudflare/Akamai (e.g. Dunnes) fail the add-shop flow with a bare "HTTP 403".
+ */
+const primaryFetch: HtmlFetcher = async (url) => {
+  const res = await fetch(url, { headers: BROWSER_HEADERS });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.text();
 };
 
 /** Extract slug/displayName/baseUrl from the METADATA comment the generator embeds. */
@@ -67,12 +83,12 @@ export async function POST(req: Request) {
     );
   }
 
-  // 1. Fetch the shop page HTML
+  // 1. Fetch the shop page HTML. Try plain HTTP first, then fall back to the stealth
+  // headless browser on a 401/403 so bot-protected shops (Cloudflare/Akamai) can still
+  // be added — the browser path is transparent and only spins up Chromium on a block.
   let rawHtml: string;
   try {
-    const res = await fetch(parsedUrl.href, { headers: BROWSER_HEADERS });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    rawHtml = await res.text();
+    rawHtml = await escalatingFetcher(primaryFetch, browserFetcher())(parsedUrl.href);
   } catch (err) {
     return NextResponse.json(
       { error: `Could not fetch shop URL: ${err instanceof Error ? err.message : String(err)}` },
@@ -92,10 +108,26 @@ export async function POST(req: Request) {
   try {
     const genMessage = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 4096,
+      // A complete scraper bundle (JSON paths + ld+json + DOM fallback + on-sale
+      // handling) routinely runs past 4k output tokens; too tight a cap truncates the
+      // scrape() mid-function and the judge rejects it as "incomplete" (as happened
+      // for Tesco). Give it real headroom.
+      max_tokens: 8000,
       system: GENERATOR_SYSTEM_PROMPT,
       messages: [{ role: "user", content: GENERATOR_USER_TEMPLATE(shopUrl, html) }],
     });
+
+    // If the model still hit the token ceiling, the bundle is truncated and unusable —
+    // fail loudly instead of shipping a half-written scraper to the judge/install step.
+    if (genMessage.stop_reason === "max_tokens") {
+      return NextResponse.json(
+        {
+          error:
+            "Scraper generation was cut off at the output-token limit — the shop page may be unusually large. Please try again.",
+        },
+        { status: 502 },
+      );
+    }
 
     bundleJs = genMessage.content
       .filter((b) => b.type === "text")
