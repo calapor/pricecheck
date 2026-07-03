@@ -169,6 +169,25 @@ spec:
         container('helm') {
           withCredentials([string(credentialsId: 'postgres-password', variable: 'PG_PASSWORD')]) {
             sh '''
+              # An interrupted prior deploy (aborted job, evicted node, or the
+              # pipeline timeout firing mid --wait) leaves the release in a
+              # *-pending state, and helm then refuses every upgrade with
+              # "another operation (install/upgrade/rollback) is in progress".
+              # Clear that leftover state before deploying so one bad run does
+              # not wedge all future ones.
+              STATUS=$(helm status pricecheck -n "${NAMESPACE}" -o json 2>/dev/null \
+                | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4 || true)
+              case "${STATUS}" in
+                pending-install)
+                  echo "Release stuck in pending-install from an interrupted run — uninstalling."
+                  helm uninstall pricecheck -n "${NAMESPACE}" --wait || true
+                  ;;
+                pending-upgrade|pending-rollback)
+                  echo "Release stuck in ${STATUS} from an interrupted run — rolling back to last deployed revision."
+                  helm rollback pricecheck -n "${NAMESPACE}" --wait --timeout 5m || true
+                  ;;
+              esac
+
               helm upgrade --install pricecheck deploy/helm/pricecheck \
                 --namespace "${NAMESPACE}" --create-namespace \
                 --set image.registry="${REGISTRY}" \
