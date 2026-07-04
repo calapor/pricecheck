@@ -4,16 +4,23 @@ import Link from "next/link";
 export function AppHeader({ active }: { active: "deals" | "configure" | "admin" }) {
   return (
     <header className="flex items-center justify-between">
-      <Link href="/" aria-label="PriceCheck">
-        <Image
-          src="/pricecheck-logo.png"
-          alt="PriceCheck"
-          width={780}
-          height={300}
-          className="h-12 w-auto"
-          priority
-        />
-      </Link>
+      <div className="flex items-center gap-3">
+        <Link href="/" aria-label="PriceCheck">
+          <Image
+            src="/pricecheck-logo.png"
+            alt="PriceCheck"
+            width={780}
+            height={300}
+            className="h-12 w-auto"
+            priority
+          />
+        </Link>
+        {process.env.DEMO_MODE === "true" && (
+          <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-widest uppercase bg-amber-400/20 text-amber-600 border border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-400 dark:border-amber-400/25 select-none">
+            Demo
+          </span>
+        )}
+      </div>
       <nav className="flex gap-1">
         <Link
           href="/"
