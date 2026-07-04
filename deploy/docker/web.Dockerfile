@@ -24,6 +24,25 @@ COPY . .
 ENV NODE_OPTIONS=--max-old-space-size=2048
 RUN pnpm --filter @pricecheck/web build
 
+# @vercel/nft (used by Next.js `output: 'standalone'`) can't statically trace the
+# merge-deep → clone-deep → shallow-clone → … lazy-cache micro-package web that
+# puppeteer-extra-plugin-stealth pulls in: every dep is loaded through lazy-cache's
+# string-argument require() — e.g. require('is-plain-object', 'isObject') — so the
+# whole sub-tree is silently omitted from the standalone bundle and the server dies
+# at runtime with "Cannot find module 'is-plain-object'". Copy that dependency
+# closure into the standalone store, preserving pnpm's symlink layout (cp -a) so
+# nested resolution (e.g. is-plain-object → isobject) keeps working. The stealth
+# plugin declaring is-plain-object (pnpm-workspace.yaml packageExtensions) is a
+# prerequisite for this — it makes the module installable — but not sufficient on
+# its own, because nft still can't see the dynamic require.
+RUN set -eu; \
+    dest=apps/web/.next/standalone/node_modules/.pnpm; \
+    for pkg in merge-deep clone-deep shallow-clone mixin-object is-plain-object \
+               is-extendable isobject kind-of is-buffer for-own for-in arr-union \
+               lazy-cache; do \
+      cp -a node_modules/.pnpm/$pkg@* "$dest"/; \
+    done
+
 FROM base AS runner
 ENV NODE_ENV=production
 ARG APP_VERSION=dev
