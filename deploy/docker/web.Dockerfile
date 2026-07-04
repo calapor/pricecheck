@@ -41,13 +41,24 @@ RUN pnpm --filter @pricecheck/web build
 # plugin declaring is-plain-object (pnpm-workspace.yaml packageExtensions) is a
 # prerequisite for this — it makes the module installable — but not sufficient on
 # its own, because nft still can't see the dynamic require.
+#
+# playwright / playwright-core are the same story: playwright-extra loads them via a
+# dynamic `require('playwright-core')`, so nft never traces them. Copying the package
+# dirs (in the loop) is necessary but NOT sufficient — Next also drops the `playwright`
+# and `playwright-core` entries from pnpm's store-wide fallback dir (.pnpm/node_modules/),
+# and that fallback is the path resolution takes from inside playwright-extra. Without it
+# the require walks up, misses, and dies at runtime with "Playwright is missing". So after
+# the loop we restore those two fallback symlinks from source (cp -a keeps their relative
+# targets, which point at the package dirs the loop just copied — version-agnostic).
 RUN set -eu; \
     dest=apps/web/.next/standalone/node_modules/.pnpm; \
     for pkg in merge-deep clone-deep shallow-clone mixin-object is-plain-object \
                is-extendable isobject kind-of is-buffer for-own for-in arr-union \
                lazy-cache playwright playwright-core; do \
       cp -a node_modules/.pnpm/$pkg@* "$dest"/; \
-    done
+    done; \
+    cp -a node_modules/.pnpm/node_modules/playwright \
+          node_modules/.pnpm/node_modules/playwright-core "$dest"/node_modules/
 
 FROM base AS runner
 ENV NODE_ENV=production
