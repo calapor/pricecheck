@@ -124,7 +124,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Scraper generation was cut off at the output-token limit — the shop page may be unusually large. Please try again.",
+            `Scraper generation was cut off at the output-token limit (GENERATOR_MAX_TOKENS=${GENERATOR_MAX_TOKENS}) — the shop page may be unusually large. Increase GENERATOR_MAX_TOKENS and redeploy, then try again.`,
         },
         { status: 502 },
       );
