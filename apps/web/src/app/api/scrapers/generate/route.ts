@@ -105,9 +105,9 @@ export async function POST(req: Request) {
   // page exceeding the context window, network) is returned as JSON so the client
   // shows a real message instead of choking on an empty 500 body.
   let bundleJs: string;
-  let judgeMessage: Awaited<ReturnType<typeof anthropic.messages.create>>;
+  let judgeMessage: Anthropic.Message;
   try {
-    const genMessage = await anthropic.messages.create({
+    const genMessage = await anthropic.messages.stream({
       model: MODEL,
       // A complete scraper bundle (JSON paths + ld+json + DOM fallback + on-sale
       // handling) routinely runs past 4k output tokens; too tight a cap truncates the
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
       max_tokens: GENERATOR_MAX_TOKENS,
       system: GENERATOR_SYSTEM_PROMPT,
       messages: [{ role: "user", content: GENERATOR_USER_TEMPLATE(shopUrl, html) }],
-    });
+    }).finalMessage();
 
     // If the model still hit the token ceiling, the bundle is truncated and unusable —
     // fail loudly instead of shipping a half-written scraper to the judge/install step.
@@ -135,12 +135,12 @@ export async function POST(req: Request) {
       .map((b) => b.text)
       .join("");
 
-    judgeMessage = await anthropic.messages.create({
+    judgeMessage = await anthropic.messages.stream({
       model: MODEL,
       max_tokens: 1024,
       system: JUDGE_SYSTEM_PROMPT,
       messages: [{ role: "user", content: JUDGE_USER_TEMPLATE(shopUrl, bundleJs) }],
-    });
+    }).finalMessage();
 
     // Log token usage/cost for the admin dashboard — awaited so both rows land before the
     // response returns (fire-and-forget races request teardown), but never fail generation.
