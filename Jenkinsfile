@@ -183,6 +183,7 @@ spec:
           withCredentials([
             string(credentialsId: 'postgres-password', variable: 'PG_PASSWORD'),
             string(credentialsId: 'anthropic-api-key', variable: 'ANTHROPIC_KEY'),
+            string(credentialsId: 'admin-password', variable: 'ADMIN_PASSWORD'),
           ]) {
             sh '''
               # An interrupted prior deploy (aborted job, evicted node, or the
@@ -211,6 +212,7 @@ spec:
                 --set image.tag="${IMAGE_TAG}" \
                 --set postgres.password="${PG_PASSWORD}" \
                 --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
+                --set secrets.adminPassword="${ADMIN_PASSWORD}" \
                 --set config.generatorMaxTokens="${GENERATOR_MAX_TOKENS}" \
                 --wait --timeout 90m
             '''
@@ -242,6 +244,7 @@ spec:
                     --set image.tag="${IMAGE_TAG}" \
                     --set postgres.password="${PG_PASSWORD}" \
                     --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
+                    --set secrets.adminPassword="${ADMIN_PASSWORD}" \
                     --wait --timeout 90m
                 '''
               }
