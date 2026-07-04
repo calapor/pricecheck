@@ -4,6 +4,7 @@ import {
   GENERATOR_USER_TEMPLATE,
   JUDGE_SYSTEM_PROMPT,
   JUDGE_USER_TEMPLATE,
+  compilePlugin,
   escalatingFetcher,
   stripScriptsAndStyles,
   type HtmlFetcher,
@@ -14,7 +15,10 @@ import { recordAiUsage } from "@pricecheck/db";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-const MODEL = "claude-sonnet-4-6";
+// First-attempt generator + the judge run on Sonnet. On a truncated draft we retry once
+// on Opus, which is far better at completing long, multi-path structured code in one pass.
+const GENERATOR_MODEL = process.env.GENERATOR_MODEL ?? "claude-sonnet-4-6";
+const GENERATOR_RETRY_MODEL = process.env.GENERATOR_RETRY_MODEL ?? "claude-opus-4-8";
 const GENERATOR_MAX_TOKENS = parseInt(process.env.GENERATOR_MAX_TOKENS ?? "16000", 10);
 
 // Anthropic SDK throws at call time if the key is missing/invalid.
@@ -50,6 +54,29 @@ function extractMetadata(
     return JSON.parse(m[1]!) as { slug: string; displayName: string; baseUrl: string };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Structural completeness gate for a generated bundle. The model sometimes stops early with
+ * stop_reason="end_turn" (not "max_tokens"), leaving scrape() half-written — the token guard
+ * never catches this. Reuse the same sandbox compile the install path uses: a bundle that
+ * evaluates and exports a scrape() function is, by definition, not truncated. compilePlugin
+ * throws on a syntax error (a mid-function cut) or a missing scrape export.
+ */
+function isBundleComplete(bundleJs: string): boolean {
+  const meta = extractMetadata(bundleJs);
+  try {
+    compilePlugin({
+      slug: meta?.slug ?? "gen",
+      displayName: meta?.displayName ?? "gen",
+      baseUrl: meta?.baseUrl ?? "https://example.com/",
+      bundleJs,
+      version: "gen",
+    });
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -106,56 +133,88 @@ export async function POST(req: Request) {
   // shows a real message instead of choking on an empty 500 body.
   let bundleJs: string;
   let judgeMessage: Anthropic.Message;
+  // Every generation attempt's model + token usage, logged after we have a result so the
+  // admin dashboard reflects true spend even when a Sonnet draft is retried on Opus.
+  const genUsage: Array<{ model: string; usage: Anthropic.Usage }> = [];
   try {
-    const genMessage = await anthropic.messages.stream({
-      model: MODEL,
-      // A complete scraper bundle (JSON paths + ld+json + DOM fallback + on-sale
-      // handling) routinely runs past 4k output tokens; too tight a cap truncates the
-      // scrape() mid-function and the judge rejects it as "incomplete" (as happened
-      // for Tesco). Configurable via GENERATOR_MAX_TOKENS env var; default 16 000.
-      max_tokens: GENERATOR_MAX_TOKENS,
-      system: GENERATOR_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: GENERATOR_USER_TEMPLATE(shopUrl, html) }],
-    }).finalMessage();
+    // Attempt 1 on Sonnet; on a truncated draft, one retry on Opus. Truncation is caught
+    // regardless of stop_reason — a half-written scrape() from an early "end_turn" fails
+    // the compile gate just as a "max_tokens" cut-off does.
+    const models = [GENERATOR_MODEL, GENERATOR_RETRY_MODEL];
+    let complete = false;
+    bundleJs = "";
+    for (const model of models) {
+      const genMessage = await anthropic.messages.stream({
+        model,
+        // A complete scraper bundle (JSON paths + ld+json + DOM fallback + on-sale
+        // handling) routinely runs past 4k output tokens; too tight a cap truncates the
+        // scrape() mid-function and the judge rejects it as "incomplete" (as happened
+        // for Tesco). Configurable via GENERATOR_MAX_TOKENS env var; default 16 000.
+        max_tokens: GENERATOR_MAX_TOKENS,
+        system: GENERATOR_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: GENERATOR_USER_TEMPLATE(shopUrl, html) }],
+      }).finalMessage();
+      genUsage.push({ model, usage: genMessage.usage });
 
-    // If the model still hit the token ceiling, the bundle is truncated and unusable —
-    // fail loudly instead of shipping a half-written scraper to the judge/install step.
-    if (genMessage.stop_reason === "max_tokens") {
+      bundleJs = genMessage.content
+        .filter((b) => b.type === "text")
+        .map((b) => b.text)
+        .join("");
+
+      // A bundle is usable only if it neither hit the token ceiling nor stopped early with a
+      // half-written scrape(). If truncated, loop to the more capable retry model.
+      if (genMessage.stop_reason !== "max_tokens" && isBundleComplete(bundleJs)) {
+        complete = true;
+        break;
+      }
+    }
+
+    if (!complete) {
+      // Log the attempts we did make before bailing, then fail loudly rather than shipping a
+      // half-written scraper to the judge/install step.
+      await Promise.all(
+        genUsage.map((g) =>
+          recordAiUsage(db, {
+            route: "scrapers/generate",
+            operation: "generate",
+            model: g.model,
+            inputTokens: g.usage.input_tokens,
+            outputTokens: g.usage.output_tokens,
+          }),
+        ),
+      ).catch(() => undefined);
       return NextResponse.json(
         {
           error:
-            "Scraper generation was cut off at the output-token limit — the shop page may be unusually large. Please try again.",
+            "Scraper generation produced an incomplete bundle after 2 attempts — the shop page may be unusually complex. Please try again.",
         },
         { status: 502 },
       );
     }
 
-    bundleJs = genMessage.content
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("");
-
     judgeMessage = await anthropic.messages.stream({
-      model: MODEL,
+      model: GENERATOR_MODEL,
       max_tokens: 1024,
       system: JUDGE_SYSTEM_PROMPT,
       messages: [{ role: "user", content: JUDGE_USER_TEMPLATE(shopUrl, bundleJs) }],
     }).finalMessage();
 
-    // Log token usage/cost for the admin dashboard — awaited so both rows land before the
+    // Log token usage/cost for the admin dashboard — awaited so all rows land before the
     // response returns (fire-and-forget races request teardown), but never fail generation.
     await Promise.all([
-      recordAiUsage(db, {
-        route: "scrapers/generate",
-        operation: "generate",
-        model: MODEL,
-        inputTokens: genMessage.usage.input_tokens,
-        outputTokens: genMessage.usage.output_tokens,
-      }),
+      ...genUsage.map((g) =>
+        recordAiUsage(db, {
+          route: "scrapers/generate",
+          operation: "generate",
+          model: g.model,
+          inputTokens: g.usage.input_tokens,
+          outputTokens: g.usage.output_tokens,
+        }),
+      ),
       recordAiUsage(db, {
         route: "scrapers/generate",
         operation: "judge",
-        model: MODEL,
+        model: GENERATOR_MODEL,
         inputTokens: judgeMessage.usage.input_tokens,
         outputTokens: judgeMessage.usage.output_tokens,
       }),
