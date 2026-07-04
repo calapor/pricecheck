@@ -77,6 +77,10 @@ that will survive on the results grid and across minor markup changes:
    \`input.url\` is a search-results page, select the FIRST product result.
 5. Include \`sourceHash: ctx.contentHash([url, price.amountMinor, price.currency, inStock])\`
 6. The bundle is plain JavaScript — no TypeScript, no ES module syntax (use module.exports, not export)
+7. Output the COMPLETE bundle in a single response. Close every function, object, and brace,
+   and end with the final \`module.exports\` assignment — never stop early or leave \`scrape()\`
+   half-written. If the shop needs multiple parsing paths (structured-data, JSON-LD, DOM
+   fallback), implement all of them and make sure the DOM fallback and every \`return\` are present.
 
 ## Also return as a JSON comment at the top of the bundle
 
