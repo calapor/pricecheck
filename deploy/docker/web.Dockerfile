@@ -9,7 +9,11 @@ RUN corepack prepare pnpm@11.1.1 --activate
 WORKDIR /app
 
 FROM base AS deps
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
+# `.npmrc` carries node-linker=hoisted, package-import-method=copy and the
+# extended network-timeout for large tarballs (next/swc, sharp) on slow CI links.
+# Without it, `pnpm install` below uses pnpm's default fetch timeout and aborts
+# on the arm64 @next/swc tarball ("The operation was aborted due to timeout").
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json .npmrc ./
 COPY apps/web/package.json apps/web/
 COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
