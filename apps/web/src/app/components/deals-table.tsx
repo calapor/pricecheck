@@ -98,16 +98,20 @@ export function DealsTable({ deals, history }: Props) {
           ))}
         </div>
       )}
-    <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+      <table className="w-full min-w-[480px] text-sm">
         <thead className="bg-zinc-50 text-left text-zinc-500 dark:bg-zinc-900">
           <tr>
             <SortHeader label="Product" col="product" active={sort === "product"} dir={dir} onToggle={toggleSort} />
-            <SortHeader label="Shop" col="shop" active={sort === "shop"} dir={dir} onToggle={toggleSort} />
+            <th className="hidden px-4 py-2 font-medium sm:table-cell">
+              <button className="cursor-pointer select-none hover:text-zinc-900 dark:hover:text-white" onClick={() => toggleSort("shop")}>
+                Shop<span className="ml-1 text-[10px]">{sort === "shop" ? (dir === "asc" ? "↑" : "↓") : "↕"}</span>
+              </button>
+            </th>
             <th className="px-4 py-2 font-medium">Now</th>
             <th className="px-4 py-2 font-medium">Was</th>
             <SortHeader label="Save" col="save" active={sort === "save"} dir={dir} onToggle={toggleSort} />
-            <th className="px-4 py-2 font-medium">30d</th>
+            <th className="hidden px-4 py-2 font-medium sm:table-cell">30d</th>
           </tr>
         </thead>
         <tbody>
@@ -143,7 +147,7 @@ export function DealsTable({ deals, history }: Props) {
                     )}
                   </span>
                 </td>
-                <td className="px-4 py-3">
+                <td className="hidden px-4 py-3 sm:table-cell">
                   <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
                     {d.retailerName}
                   </span>
@@ -167,7 +171,7 @@ export function DealsTable({ deals, history }: Props) {
                     <span className="text-zinc-400">—</span>
                   )}
                 </td>
-                <td className="px-4 py-3">
+                <td className="hidden px-4 py-3 sm:table-cell">
                   <Sparkline points={pts} />
                 </td>
               </tr>

@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export function AppHeader({ active }: { active: "deals" | "configure" | "admin" }) {
   return (
-    <header className="flex items-center justify-between">
+    <header className="flex flex-col items-center gap-3 md:flex-row md:justify-between">
       <div className="flex items-center gap-3">
         <Link href="/" aria-label="PriceCheck">
           <Image
@@ -21,7 +21,7 @@ export function AppHeader({ active }: { active: "deals" | "configure" | "admin" 
           </span>
         )}
       </div>
-      <nav className="flex gap-1">
+      <nav className="flex flex-wrap justify-center gap-1 md:justify-end">
         <Link
           href="/"
           className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${

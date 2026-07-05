@@ -267,6 +267,9 @@ spec:
           buildah --storage-driver overlay rmi --all || true
         '''
       }
+      container('node') {
+        junit allowEmptyResults: true, testResults: 'test-results/**/*.xml'
+      }
     }
 
     success {
