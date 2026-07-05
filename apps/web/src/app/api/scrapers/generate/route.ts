@@ -7,6 +7,8 @@ import {
   compilePlugin,
   escalatingFetcher,
   stripScriptsAndStyles,
+  detectBotWall,
+  botWallMessage,
   type HtmlFetcher,
   type JudgeVerdict,
 } from "@pricecheck/scrapers";
@@ -120,6 +122,18 @@ export async function POST(req: Request) {
   } catch (err) {
     return NextResponse.json(
       { error: `Could not fetch shop URL: ${err instanceof Error ? err.message : String(err)}` },
+      { status: 422 },
+    );
+  }
+
+  // A bot-management denial (Akamai/Cloudflare) often comes back as HTTP 200 with a tiny
+  // "Access Denied" body, so the escalating fetcher's 401/403 escalation never fires and the
+  // browser fallback returns the same wall. Detect it by content and park the shop with an
+  // honest reason instead of burning a model call generating a scraper for an error page.
+  const wall = detectBotWall(rawHtml);
+  if (wall.blocked) {
+    return NextResponse.json(
+      { error: botWallMessage(parsedUrl.host, wall.vendor), blocked: true },
       { status: 422 },
     );
   }
