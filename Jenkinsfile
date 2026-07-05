@@ -38,12 +38,15 @@ spec:
         privileged: true
       resources:
         # ephemeral-storage request routes the agent onto a node with enough free
-        # disk for the vfs build scratch (vfs copies every layer in full; the
-        # worker image alone — Node + pnpm store + Playwright/Chromium — needs
-        # several GB). Without it the pod can land on a nearly-full node and the
-        # build dies with "no space left on device".
+        # disk for the build scratch, and the matching *limit* is the safety net:
+        # if buildah's storage ever overruns it, the kubelet evicts just this pod
+        # instead of letting the node fill up — a runaway build used to fill a Pi's
+        # disk, trip DiskPressure and reboot the whole node (aborting the build and
+        # briefly evicting every other pod on it). The overlay storage driver (see
+        # the Build stage) shares layers instead of copying each one in full, so
+        # actual usage stays well under this ceiling.
         requests: { cpu: "500m", memory: "1Gi",   ephemeral-storage: "12Gi" }
-        limits:   { cpu: "2",    memory: "2.5Gi" }
+        limits:   { cpu: "2",    memory: "2.5Gi", ephemeral-storage: "12Gi" }
 '''
     }
   }
@@ -146,26 +149,26 @@ spec:
       steps {
         container('buildah') {
           sh '''
-            buildah --storage-driver vfs rm --all || true
-            buildah --storage-driver vfs rmi --prune || true
+            buildah --storage-driver overlay rm --all || true
+            buildah --storage-driver overlay rmi --prune || true
           '''
           sh '''
             for app in web worker; do
-              buildah --storage-driver vfs bud --isolation chroot \
+              buildah --storage-driver overlay bud --isolation chroot \
                 -f "deploy/docker/${app}.Dockerfile" \
                 --build-arg "APP_VERSION=${IMAGE_TAG} (#${BUILD_NUMBER})" \
                 -t "${REGISTRY}/${IMAGE_REPO}/${app}:${IMAGE_TAG}" \
                 -t "${REGISTRY}/${IMAGE_REPO}/${app}:main" .
               for tag in "${IMAGE_TAG}" main; do
-                buildah --storage-driver vfs push --tls-verify=false \
+                buildah --storage-driver overlay push --tls-verify=false \
                   "${REGISTRY}/${IMAGE_REPO}/${app}:${tag}" \
                   "docker://${REGISTRY}/${IMAGE_REPO}/${app}:${tag}"
               done
-              # Reclaim this image's vfs layers before building the next app —
+              # Reclaim this image's layers before building the next app —
               # otherwise web + worker scratch accumulate in the agent pod and the
               # second build runs the node out of disk mid-layer.
-              buildah --storage-driver vfs rm --all || true
-              buildah --storage-driver vfs rmi --all || true
+              buildah --storage-driver overlay rm --all || true
+              buildah --storage-driver overlay rmi --all || true
             done
           '''
         }
@@ -260,8 +263,8 @@ spec:
     always {
       container('buildah') {
         sh '''
-          buildah --storage-driver vfs rm --all || true
-          buildah --storage-driver vfs rmi --all || true
+          buildah --storage-driver overlay rm --all || true
+          buildah --storage-driver overlay rmi --all || true
         '''
       }
     }
