@@ -29,7 +29,7 @@ export default async function Home() {
         <DealsTable deals={deals} history={history} />
       </div>
 
-      <footer className="mt-6 flex items-center justify-between text-xs text-zinc-400">
+      <footer className="mt-6 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
         <UpdatedAt at={now} />
         <RefreshAllButton />
       </footer>
