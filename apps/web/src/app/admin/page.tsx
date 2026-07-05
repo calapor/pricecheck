@@ -51,7 +51,7 @@ export default async function AdminPage() {
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-12">
       <AppHeader active="admin" />
-      <div className="mt-8 flex items-center justify-between">
+      <div className="mt-8 flex flex-wrap items-center gap-3 justify-between">
         <h1 className="text-lg font-semibold tracking-tight">Admin · AI usage</h1>
         <div className="flex items-center gap-3">
           {process.env.DEMO_MODE === "true" && <ReseedDemoButton />}
@@ -78,7 +78,7 @@ export default async function AdminPage() {
       {/* Recent calls */}
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-semibold">Recent calls</h2>
-        <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-900">
               <tr>
@@ -137,7 +137,7 @@ export default async function AdminPage() {
         </div>
 
         {/* Recent visitors */}
-        <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-left text-sm">
             <thead className="bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-900">
               <tr>
