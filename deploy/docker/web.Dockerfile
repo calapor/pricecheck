@@ -60,25 +60,36 @@ RUN pnpm --filter @pricecheck/web build
 # playwright-extra loads through a dynamic `require('puppeteer-extra-plugin-stealth/evasions/
 # <name>')` built from the plugin's `dependencies` getter. Missing them, the browser-fallback
 # launch dies at runtime with "Plugin dependency not found" (e.g. add-shop for Dunnes / any shop
-# that 403s and escalates to the stealth browser). Here — unlike playwright — nft DOES keep the
-# store-wide fallback symlink for the stealth package (which is why the failure is "Plugin
-# dependency not found", i.e. the base package resolved, and not "Cannot find module"), so only
-# the package DIRS are missing files. Copy the four puppeteer-extra-plugin* dirs: the stealth dir
-# carries evasions/**, and the other three are what those evasions require in turn. The
-# is-plain-object micro-package closure they pull in via lazy-cache is already handled by the
-# loop above. Verified end-to-end against a real `next build` standalone: all 16 evasions plus
-# their transitive deps resolve from playwright-extra's location after this copy.
+# that 403s and escalates to the stealth browser).
+#
+# The resolution is a THREE-part fix, all of which nft misses:
+#  1. package DIRS — the stealth dir carries evasions/**; the three puppeteer-extra-plugin* deps
+#     are what the `user-agent-override` evasion pulls in, and those in turn need a further
+#     micro-package closure (deepmerge for user-preferences; fs-extra -> graceful-fs/jsonfile/
+#     universalify + rimraf for user-data-dir). The is-plain-object closure is handled above.
+#  2. store-wide fallback symlinks (.pnpm/node_modules/) — playwright-extra's dependency loader
+#     requires user-preferences/user-data-dir FROM ITS OWN location, so it resolves them via the
+#     store-wide fallback, which nft drops for these two (it keeps stealth + puppeteer-extra-plugin,
+#     which is why the failure is "Plugin dependency not found", not "Cannot find module").
+# WARNING: require.resolve() is NOT sufficient to verify this — it only checks the entry module
+# resolves, not that its require() chain loads. The ONLY reliable check is to boot the standalone
+# server and hit /api/scrapers/generate with a 403-ing shop. Verified end-to-end that way: the
+# stealth chromium launches and the browser fallback fetches (then returns the shop's own page /
+# bot-wall), instead of throwing "Plugin dependency not found".
 RUN set -eu; \
     dest=apps/web/.next/standalone/node_modules/.pnpm; \
     for pkg in merge-deep clone-deep shallow-clone mixin-object is-plain-object \
                is-extendable isobject kind-of is-buffer for-own for-in arr-union \
                lazy-cache playwright playwright-core \
                puppeteer-extra-plugin-stealth puppeteer-extra-plugin \
-               puppeteer-extra-plugin-user-preferences puppeteer-extra-plugin-user-data-dir; do \
+               puppeteer-extra-plugin-user-preferences puppeteer-extra-plugin-user-data-dir \
+               deepmerge fs-extra graceful-fs jsonfile universalify rimraf; do \
       cp -a node_modules/.pnpm/$pkg@* "$dest"/; \
     done; \
     cp -a node_modules/.pnpm/node_modules/playwright \
-          node_modules/.pnpm/node_modules/playwright-core "$dest"/node_modules/
+          node_modules/.pnpm/node_modules/playwright-core \
+          node_modules/.pnpm/node_modules/puppeteer-extra-plugin-user-preferences \
+          node_modules/.pnpm/node_modules/puppeteer-extra-plugin-user-data-dir "$dest"/node_modules/
 
 FROM base AS runner
 ENV NODE_ENV=production
