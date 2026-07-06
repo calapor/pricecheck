@@ -58,6 +58,16 @@ spec:
 
   parameters {
     booleanParam(
+      name: 'DEPLOY_ONLY',
+      defaultValue: false,
+      description: 'Skip Install/Verify/Build stages and re-deploy an already-pushed image. Use after a deploy failure to avoid a full rebuild.'
+    )
+    string(
+      name: 'IMAGE_TAG_OVERRIDE',
+      defaultValue: '',
+      description: 'Git short SHA of the image to deploy. Leave blank to use HEAD (the usual case for DEPLOY_ONLY re-runs).'
+    )
+    booleanParam(
       name: 'DEPLOY_DEMO',
       defaultValue: true,
       description: 'Also deploy the showcase "pricecheck-demo" release (NodePort 30090, seeded SuperValu sample data).'
@@ -90,9 +100,17 @@ spec:
               returnStdout: true,
               script: 'git rev-parse --short HEAD'
             ).trim()
+            if (params.IMAGE_TAG_OVERRIDE?.trim()) {
+              env.IMAGE_TAG = params.IMAGE_TAG_OVERRIDE.trim()
+              echo "Using override IMAGE_TAG=${env.IMAGE_TAG}"
+            }
           }
 
-          sh 'corepack enable && corepack prepare pnpm@11.1.1 --activate'
+          script {
+            if (!params.DEPLOY_ONLY) {
+              sh 'corepack enable && corepack prepare pnpm@11.1.1 --activate'
+            }
+          }
         }
       }
     }
@@ -122,6 +140,7 @@ spec:
 
 
     stage('Install') {
+      when { not { expression { params.DEPLOY_ONLY } } }
       steps {
         container('node') {
           sh 'pnpm install --frozen-lockfile'
@@ -130,6 +149,7 @@ spec:
     }
 
     stage('Verify') {
+      when { not { expression { params.DEPLOY_ONLY } } }
       steps {
         container('node') {
           sh 'pnpm -r lint'
@@ -142,8 +162,9 @@ spec:
 
     stage('Build & push images') {
       when {
-        expression {
-          env.GIT_BRANCH?.endsWith('/main')
+        allOf {
+          expression { env.GIT_BRANCH?.endsWith('/main') }
+          not { expression { params.DEPLOY_ONLY } }
         }
       }
       steps {
