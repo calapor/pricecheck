@@ -60,7 +60,6 @@ export function botWallMessage(host: string, vendor = "bot management"): string 
     `requests, so its products can't be read. There is no free way around this — it would ` +
     `need (a) a residential proxy (a real home/mobile IP; datacenter IPs are blocklisted), ` +
     `(b) a headed real browser (headless Chrome is fingerprinted and blocked), and ` +
-    `(c) a persistent browser session (to hold the anti-bot cookie across requests). ` +
-    `This shop has been parked as unsupported.`
+    `(c) a persistent browser session (to hold the anti-bot cookie across requests). ` 
   );
 }
