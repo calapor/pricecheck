@@ -21,7 +21,7 @@ import { db } from "@/lib/db";
 // on Opus, which is far better at completing long, multi-path structured code in one pass.
 const GENERATOR_MODEL = process.env.GENERATOR_MODEL ?? "claude-sonnet-4-6";
 const GENERATOR_RETRY_MODEL = process.env.GENERATOR_RETRY_MODEL ?? "claude-opus-4-8";
-const GENERATOR_MAX_TOKENS = parseInt(process.env.GENERATOR_MAX_TOKENS ?? "16000", 10);
+const GENERATOR_MAX_TOKENS = parseInt(process.env.GENERATOR_MAX_TOKENS || "16000", 10) || 16000;
 
 // Anthropic SDK throws at call time if the key is missing/invalid.
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? "" });
