@@ -238,7 +238,7 @@ spec:
                 --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
                 --set secrets.adminPassword="${ADMIN_PASSWORD}" \
                 --set config.generatorMaxTokens="${GENERATOR_MAX_TOKENS}" \
-                --wait --timeout 90m
+                --wait --timeout 150m
             '''
 
             script {
@@ -269,7 +269,7 @@ spec:
                     --set postgres.password="${PG_PASSWORD}" \
                     --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
                     --set secrets.adminPassword="${ADMIN_PASSWORD}" \
-                    --wait --timeout 90m
+                    --wait --timeout 150m
                 '''
               }
             }
