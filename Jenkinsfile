@@ -53,7 +53,7 @@ spec:
 
   options {
     disableConcurrentBuilds()
-    timeout(time: 120, unit: 'MINUTES')
+    timeout(time: 200, unit: 'MINUTES')
   }
 
   parameters {
@@ -225,7 +225,7 @@ spec:
                   ;;
                 pending-upgrade|pending-rollback)
                   echo "Release stuck in ${STATUS} from an interrupted run — rolling back to last deployed revision."
-                  helm rollback pricecheck -n "${NAMESPACE}" --wait --timeout 5m || true
+                  helm rollback pricecheck -n "${NAMESPACE}" --wait --timeout 60m || true
                   ;;
               esac
 
@@ -238,7 +238,7 @@ spec:
                 --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
                 --set secrets.adminPassword="${ADMIN_PASSWORD}" \
                 --set config.generatorMaxTokens="${GENERATOR_MAX_TOKENS}" \
-                --wait --timeout 150m
+                --wait --timeout 200m
             '''
 
             script {
@@ -256,7 +256,7 @@ spec:
                       ;;
                     pending-upgrade|pending-rollback)
                       echo "Demo release stuck in ${STATUS} — rolling back."
-                      helm rollback pricecheck-demo -n "${NAMESPACE}" --wait --timeout 5m || true
+                      helm rollback pricecheck-demo -n "${NAMESPACE}" --wait --timeout 60m || true
                       ;;
                   esac
 
@@ -269,7 +269,7 @@ spec:
                     --set postgres.password="${PG_PASSWORD}" \
                     --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
                     --set secrets.adminPassword="${ADMIN_PASSWORD}" \
-                    --wait --timeout 150m
+                    --wait --timeout 200m
                 '''
               }
             }
