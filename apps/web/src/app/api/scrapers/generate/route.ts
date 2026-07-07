@@ -200,7 +200,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Scraper generation produced an incomplete bundle after 2 attempts — the shop page may be unusually complex. Please try again.",
+            `Scraper generation produced an incomplete bundle after 2 attempts (GENERATOR_MAX_TOKENS=${GENERATOR_MAX_TOKENS}) — the shop page may be unusually complex. Please try again.`,
         },
         { status: 502 },
       );
