@@ -29,7 +29,17 @@ export function AdminLogin() {
 
   return (
     <form onSubmit={submit} className="mx-auto mt-24 flex w-full max-w-xs flex-col gap-3">
-      <h1 className="text-lg font-semibold">Admin</h1>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+          aria-label="Go back"
+        >
+          ←
+        </button>
+        <h1 className="text-lg font-semibold">Admin</h1>
+      </div>
       <input
         type="password"
         autoFocus

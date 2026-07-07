@@ -349,6 +349,13 @@ export function ShopsPanel({ initial, onSaved }: Props) {
                 />
               </div>
 
+              {verdict.recommendation === "warn" && (
+                <div className="rounded border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+                  <strong>Low confidence score ({verdict.score}/100).</strong> This template may produce
+                  unpredictable results. Review the findings above before installing.
+                </div>
+              )}
+
               {generateError && <p className="text-xs text-red-500">{generateError}</p>}
 
               <div className="flex gap-2">
