@@ -10,7 +10,9 @@ import {
   productAliases,
   products,
   retailers,
+  scraperPlugins,
 } from "./schema";
+import { clearDemoDirty } from "./repository";
 
 /**
  * Sample data for the showcase/demo deploy. This is a verbatim snapshot of the
@@ -56,6 +58,8 @@ export async function seedDemoData(db: Database, opts: { reset?: boolean } = {})
     await db.delete(productAliases);
     await db.delete(products);
     await db.delete(retailers);
+    await db.delete(scraperPlugins);
+    await clearDemoDirty(db);
   }
 
   const r = fixture.retailer;

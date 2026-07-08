@@ -1,4 +1,4 @@
-import { createRetailer, listRetailers } from "@pricecheck/db";
+import { createRetailer, listRetailers, markDemoDirty } from "@pricecheck/db";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -30,5 +30,6 @@ export async function POST(req: Request) {
     // slug matches the scraper slug exactly); fall back to auto-slugify for legacy calls.
     slug: typeof slug === "string" && slug.trim() ? slug.trim() : undefined,
   });
+  await markDemoDirty(db);
   return NextResponse.json(row, { status: 201 });
 }

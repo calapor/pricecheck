@@ -241,3 +241,9 @@ export type ScrapeRun = typeof scrapeRuns.$inferSelect;
 export type Alert = typeof alerts.$inferSelect;
 export type ScraperPlugin = typeof scraperPlugins.$inferSelect;
 export type NewScraperPlugin = typeof scraperPlugins.$inferInsert;
+
+/** Single-row table tracking when demo data was last modified by a visitor. */
+export const demoState = pgTable("demo_state", {
+  id: integer("id").primaryKey().default(1),
+  lastEditedAt: timestamp("last_edited_at", { withTimezone: true }),
+});

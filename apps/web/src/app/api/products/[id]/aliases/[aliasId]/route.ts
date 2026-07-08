@@ -1,4 +1,4 @@
-import { deleteAlias, updateAlias } from "@pricecheck/db";
+import { deleteAlias, updateAlias, markDemoDirty } from "@pricecheck/db";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -20,6 +20,7 @@ export async function PATCH(
   }
   const found = await updateAlias(db, aliasId, alias.trim());
   if (!found) return NextResponse.json({ error: "not found" }, { status: 404 });
+  await markDemoDirty(db);
   return NextResponse.json({ ok: true });
 }
 
@@ -30,5 +31,6 @@ export async function DELETE(
   const { aliasId } = await params;
   const found = await deleteAlias(db, aliasId);
   if (!found) return NextResponse.json({ error: "not found" }, { status: 404 });
+  await markDemoDirty(db);
   return NextResponse.json({ ok: true });
 }

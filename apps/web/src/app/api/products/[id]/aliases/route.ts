@@ -1,4 +1,4 @@
-import { addAlias, listAliases } from "@pricecheck/db";
+import { addAlias, listAliases, markDemoDirty } from "@pricecheck/db";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -21,5 +21,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "alias required" }, { status: 400 });
   }
   const row = await addAlias(db, id, alias.trim());
+  await markDemoDirty(db);
   return NextResponse.json(row, { status: 201 });
 }
