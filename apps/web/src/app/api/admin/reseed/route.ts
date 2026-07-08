@@ -16,6 +16,6 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await seedDemoData(db, { reset: true });
+  await seedDemoData(db, { reset: true }); // also clears demo dirty state
   return NextResponse.json({ ok: true });
 }

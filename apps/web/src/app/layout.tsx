@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Image from "next/image";
+import { DemoBanner } from "@/components/demo-banner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,6 +30,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {process.env.DEMO_MODE === "true" && <DemoBanner />}
         {process.env.MAINTENANCE_MODE === "true" ? (
           <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4 text-center">
             <Image

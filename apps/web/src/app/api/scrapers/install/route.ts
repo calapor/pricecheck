@@ -1,6 +1,6 @@
 import { compilePlugin, makeScraperContext, httpFetcher, escalatingFetcher } from "@pricecheck/scrapers";
 import { browserFetcher } from "@pricecheck/scrapers/browser";
-import { upsertPlugin } from "@pricecheck/db";
+import { upsertPlugin, markDemoDirty } from "@pricecheck/db";
 import { scrapeResultSchema } from "@pricecheck/core";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -65,6 +65,7 @@ export async function POST(req: Request) {
     baseUrl: baseUrl.trim(),
     bundleJs: bundleJs.trim(),
   });
+  await markDemoDirty(db);
 
   return NextResponse.json({ ok: true, slug: slug.trim() }, { status: 201 });
 }

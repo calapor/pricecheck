@@ -5,6 +5,7 @@ import type { Database } from "./client";
 import {
   aiUsage,
   alerts,
+  demoState,
   offers,
   priceHistory,
   productAliases,
@@ -741,6 +742,35 @@ export async function getRecentRequestLogs(db: Database, limit = 30): Promise<Re
 export interface CountryCount {
   country: string;
   visits: number;
+}
+
+// ── Demo state ────────────────────────────────────────────────────────────────
+
+/** Mark demo data as dirty (records the first edit time; subsequent calls are no-ops). */
+export async function markDemoDirty(db: Database): Promise<void> {
+  if (process.env.DEMO_MODE !== "true") return;
+  await db
+    .insert(demoState)
+    .values({ id: 1, lastEditedAt: new Date() })
+    .onConflictDoUpdate({
+      target: demoState.id,
+      // Only update if currently null — preserve the earliest edit timestamp.
+      set: { lastEditedAt: sql`CASE WHEN demo_state.last_edited_at IS NULL THEN now() ELSE demo_state.last_edited_at END` },
+    });
+}
+
+/** Clear dirty state after a reseed. */
+export async function clearDemoDirty(db: Database): Promise<void> {
+  await db
+    .insert(demoState)
+    .values({ id: 1, lastEditedAt: null })
+    .onConflictDoUpdate({ target: demoState.id, set: { lastEditedAt: null } });
+}
+
+/** Get the current demo state row, or null if the table is empty. */
+export async function getDemoState(db: Database): Promise<{ lastEditedAt: Date | null } | null> {
+  const [row] = await db.select({ lastEditedAt: demoState.lastEditedAt }).from(demoState).limit(1);
+  return row ?? null;
 }
 
 /** Visit counts grouped by country over the last `days`, busiest first. */
