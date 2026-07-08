@@ -1,4 +1,4 @@
-import { deleteRetailer, updateRetailer } from "@pricecheck/db";
+import { deleteRetailer, updateRetailer, markDemoDirty } from "@pricecheck/db";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -19,6 +19,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     enabled: typeof enabled === "boolean" ? enabled : undefined,
   });
   if (!found) return NextResponse.json({ error: "not found" }, { status: 404 });
+  await markDemoDirty(db);
   return NextResponse.json({ ok: true });
 }
 
@@ -26,5 +27,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const found = await deleteRetailer(db, id);
   if (!found) return NextResponse.json({ error: "not found" }, { status: 404 });
+  await markDemoDirty(db);
   return NextResponse.json({ ok: true });
 }
