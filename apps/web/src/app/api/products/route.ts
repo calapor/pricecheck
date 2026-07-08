@@ -1,4 +1,4 @@
-import { createProduct, listProducts } from "@pricecheck/db";
+import { createProduct, listProducts, markDemoDirty } from "@pricecheck/db";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { syncOffersForProduct } from "@/lib/offers";
@@ -30,5 +30,6 @@ export async function POST(req: Request) {
   // Immediately create + price offers at every configured retailer so the new
   // product shows up on the home page with live prices (on sale or not).
   const sync = await syncOffersForProduct(db, row.id);
+  await markDemoDirty(db);
   return NextResponse.json({ ...row, sync }, { status: 201 });
 }
