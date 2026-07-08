@@ -55,9 +55,7 @@ export function DemoBanner() {
           : "bg-amber-400 text-amber-900"
       }`}
     >
-      <span>Demo</span>
-      <span className="opacity-60">·</span>
-      <span>resets in {fmt(remaining)}</span>
+      <span>Demo data refreshes automatically. Next reset in {fmt(remaining)}</span>
     </div>
   );
 }
