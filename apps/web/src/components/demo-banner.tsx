@@ -14,42 +14,32 @@ function fmt(ms: number): string {
 
 export function DemoBanner() {
   const [editedAt, setEditedAt] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const resetting = useRef(false);
 
-  async function fetchState() {
-    try {
-      const res = await fetch("/api/admin/demo-state");
-      if (!res.ok) return;
-      const data = (await res.json()) as { lastEditedAt: string | null };
-      setEditedAt(data.lastEditedAt ? new Date(data.lastEditedAt).getTime() : null);
-    } catch {
-      // network error — leave current state unchanged
-    }
-  }
-
-  async function triggerReset() {
-    if (resetting.current) return;
-    resetting.current = true;
-    try {
-      await fetch("/api/demo/reset", { method: "POST" });
-      setEditedAt(null);
-    } finally {
-      resetting.current = false;
-    }
-  }
-
   useEffect(() => {
-    fetchState();
-    const poll = setInterval(fetchState, POLL_MS);
+    async function syncState() {
+      try {
+        const res = await fetch("/api/admin/demo-state");
+        if (!res.ok) return;
+        const data = (await res.json()) as { lastEditedAt: string | null };
+        setEditedAt(data.lastEditedAt ? new Date(data.lastEditedAt).getTime() : null);
+      } catch {}
+    }
+    void syncState();
+    const poll = setInterval(() => void syncState(), POLL_MS);
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => { clearInterval(poll); clearInterval(tick); };
   }, []);
 
   useEffect(() => {
-    if (editedAt == null) return;
-    const remaining = RESET_MS - (now - editedAt);
-    if (remaining <= 0) triggerReset();
+    if (editedAt == null || resetting.current) return;
+    if (RESET_MS - (now - editedAt) > 0) return;
+    resetting.current = true;
+    fetch("/api/demo/reset", { method: "POST" })
+      .then(() => setEditedAt(null))
+      .catch(() => undefined)
+      .finally(() => { resetting.current = false; });
   }, [now, editedAt]);
 
   if (editedAt == null) return null;

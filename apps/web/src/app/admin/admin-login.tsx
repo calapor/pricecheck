@@ -90,21 +90,20 @@ export function ReseedDemoButton() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [editedAt, setEditedAt] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const polling = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function fetchState() {
-    try {
-      const res = await fetch("/api/admin/demo-state");
-      if (!res.ok) return;
-      const data = (await res.json()) as { lastEditedAt: string | null };
-      setEditedAt(data.lastEditedAt ? new Date(data.lastEditedAt).getTime() : null);
-    } catch { /* ignore */ }
-  }
-
   useEffect(() => {
-    fetchState();
-    polling.current = setInterval(fetchState, POLL_MS);
+    async function syncState() {
+      try {
+        const res = await fetch("/api/admin/demo-state");
+        if (!res.ok) return;
+        const data = (await res.json()) as { lastEditedAt: string | null };
+        setEditedAt(data.lastEditedAt ? new Date(data.lastEditedAt).getTime() : null);
+      } catch {}
+    }
+    void syncState();
+    polling.current = setInterval(() => void syncState(), POLL_MS);
     const tick = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       if (polling.current) clearInterval(polling.current);
