@@ -72,6 +72,11 @@ spec:
       defaultValue: true,
       description: 'Also deploy the showcase "pricecheck-demo" release (NodePort 30090, seeded SuperValu sample data).'
     )
+    booleanParam(
+      name: 'DEPLOY_MONITORING',
+      defaultValue: false,
+      description: 'Deploy Prometheus + Grafana into the monitoring namespace (Grafana on NodePort 30300). Requires a "grafana-admin-password" Jenkins credential.'
+    )
     string(
       name: 'GENERATOR_MAX_TOKENS',
       defaultValue: '16000',
@@ -208,6 +213,7 @@ spec:
             string(credentialsId: 'postgres-password', variable: 'PG_PASSWORD'),
             string(credentialsId: 'anthropic-api-key', variable: 'ANTHROPIC_KEY'),
             string(credentialsId: 'admin-password', variable: 'ADMIN_PASSWORD'),
+            string(credentialsId: 'grafana-admin-password', variable: 'GRAFANA_ADMIN_PASSWORD'),
           ]) {
             sh '''
               # An interrupted prior deploy (aborted job, evicted node, or the
@@ -240,6 +246,27 @@ spec:
                 --set config.generatorMaxTokens="${GENERATOR_MAX_TOKENS}" \
                 --wait --timeout 200m
             '''
+
+            script {
+              if (params.DEPLOY_MONITORING) {
+                sh '''
+                  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+                  helm repo add grafana https://grafana.github.io/helm-charts
+                  helm repo update
+
+                  helm upgrade --install prometheus prometheus-community/prometheus \
+                    --namespace monitoring --create-namespace \
+                    --values deploy/helm/monitoring/prometheus-values.yaml \
+                    --wait --timeout 10m
+
+                  helm upgrade --install grafana grafana/grafana \
+                    --namespace monitoring --create-namespace \
+                    --values deploy/helm/monitoring/grafana-values.yaml \
+                    --set "adminPassword=${GRAFANA_ADMIN_PASSWORD}" \
+                    --wait --timeout 10m
+                '''
+              }
+            }
 
             script {
               if (params.DEPLOY_DEMO) {
