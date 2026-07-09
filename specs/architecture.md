@@ -107,7 +107,13 @@ migration jobs — the manifests override the container command per role.
 Prometheus metrics from `packages/observability`: `scrape_attempts_total{retailer,outcome}`,
 `scrape_duration_seconds`, `parse_failures_total`, `price_anomalies_total{kind}`, exposed
 at `/api/metrics` (web) and `:9091` (workers). Alert on success-rate drops, DLQ growth,
-parse-failure spikes, and freshness-SLA breaches.
+parse-failure spikes, and freshness-SLA breaches. Anthropic token usage and cost are
+metered separately into `ai_usage` and surfaced on the
+[admin dashboard](user-flows.md#admin--ai-usage-dashboard).
+
+> 📸 **Screenshot:** _Worker-fleet observability — a Grafana panel of scrape success rate /
+> duration, or `kubectl get pods -n pricecheck` showing the web/worker/scheduler pods._
+<!-- ![Worker fleet + metrics](../docs/screenshots/observability.png) -->
 
 ## Legal / ethical guardrails
 

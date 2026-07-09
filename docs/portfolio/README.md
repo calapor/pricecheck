@@ -37,6 +37,17 @@ The AI-generated scraper pipeline uses a **generate → judge → sandbox** loop
 
 This pattern is described in full in [ADR-0007](../adr/0007-ai-generated-scraper-plugins.md) and [`specs/ai-rules.md`](../../specs/ai-rules.md).
 
+> 📸 **Screenshot:** _The generate → judge loop in the UI — a generated scraper bundle next
+> to the AI judge's verdict and findings._
+<!-- ![Add a shop via AI — generate + judge](../screenshots/add-shop-ai.png) -->
+
+Every generator and judge call is metered into the `ai_usage` table and surfaced on the
+[admin AI-usage dashboard](../../specs/user-flows.md#admin--ai-usage-dashboard) — the AI
+workflow is observable and cost-accounted, not a black box.
+
+> 📸 **Screenshot:** _Admin AI-usage dashboard — token/cost over time per route and model._
+<!-- ![Admin — AI-usage dashboard](../screenshots/admin-ai-usage.png) -->
+
 ## Engineering decision log
 
 Key architectural decisions are captured as [Architecture Decision Records](../adr/):
@@ -50,3 +61,4 @@ Key architectural decisions are captured as [Architecture Decision Records](../a
 | [0005](../adr/0005-denormalized-offers-for-o1-reads.md) | Denormalized `offers` current-state for O(1) reads |
 | [0006](../adr/0006-dual-cicd-github-actions-or-jenkins.md) | Dual CI/CD: GitHub Actions or self-hosted Jenkins |
 | [0007](../adr/0007-ai-generated-scraper-plugins.md) | AI-generated scraper plugins (generate → judge → sandbox) |
+| [0008](../adr/0008-headless-browser-fallback.md) | Headless browser (Playwright + stealth) fallback for bot-blocked retailers |

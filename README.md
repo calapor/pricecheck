@@ -20,6 +20,11 @@ resilient architecture.
 📄 **Full design:** [`specs/architecture.md`](specs/architecture.md) ·
 🔧 **Pipeline:** [`specs/ci-cd-pipeline.md`](specs/ci-cd-pipeline.md)
 
+> 📸 **Screenshot:** _On Sale Now — the home page: a sortable table of currently-discounted
+> grocery items (Product · Shop · Current Price · Normal Price · Reduction %) with per-row
+> 30-day price sparklines._ See [`docs/screenshots/`](docs/screenshots/) for the shot list.
+<!-- ![PriceCheck — On Sale Now](docs/screenshots/on-sale-now.png) -->
+
 ---
 
 > **Portfolio documentation** — AI-leveraged SDLC, prompt engineering lifecycle, scraper evaluation framework, and engineering decision log:
@@ -33,6 +38,12 @@ resilient architecture.
   **generates a scraper**, and an AI judge validates it before it's installed as a
   sandboxed plugin. New retailers are added without hand-writing an adapter, in any
   region or currency. See [`specs/user-flows.md`](specs/user-flows.md#add-a-new-shop-via-ai).
+
+  > 📸 **Screenshot:** _Add a shop via AI — paste a URL, Claude generates the scraper, and
+  > the AI judge returns an `install` / `warn` / `reject` verdict with findings._
+  <!-- ![Add a shop via AI — generate + judge](docs/screenshots/add-shop-ai.png) -->
+- **Tracks AI spend** — an [admin dashboard](specs/user-flows.md#admin--ai-usage-dashboard)
+  visualises Anthropic token usage and cost per route/operation/model over time.
 - Runs scraping as a **horizontally-scalable worker fleet on Kubernetes**, decoupled from
   the read path behind a durable queue. See [`specs/architecture.md`](specs/architecture.md).
 - Scrapes a configurable set of retailers on a **daily schedule**, plus **on-demand
@@ -62,9 +73,10 @@ resilience and scalability patterns.
 | Layer | Choice |
 |-------|--------|
 | Web / API | Next.js 16 (App Router), React 19, Tailwind 4, TypeScript |
-| Data | PostgreSQL + Drizzle ORM (CloudNativePG in-cluster; Neon as managed alt) |
+| Data | PostgreSQL + Drizzle ORM (in-cluster StatefulSet; CloudNativePG or managed Neon in prod) |
 | Queue / cache | Redis + BullMQ |
-| Scraping | HTTP + Playwright (per-retailer adapters), light proxy rotation |
+| Scraping | Per-retailer adapters + AI-generated plugins; HTTP first, **Playwright + stealth fallback** on bot-block ([ADR-0008](docs/adr/0008-headless-browser-fallback.md)) |
+| AI | Anthropic Claude (scraper generate + judge), with token/cost tracking in `ai_usage` |
 | Validation | Zod at every scraper boundary |
 | Observability | Prometheus metrics (`prom-client`), structured logs |
 | Packaging | Docker, Helm, Kubernetes (CronJob, Deployment, KEDA-ready) |
@@ -123,10 +135,14 @@ pnpm -r build       # next build (standalone)
 - [x] CI (lint/typecheck/test/build) + image build/push to GHCR
 - [x] Helm chart — web/worker/scheduler + migration Job + in-cluster Postgres/Redis
       (`helm lint` + `template` + `kubectl --dry-run` verified). See [`specs/deployment.md`](specs/deployment.md)
-- [ ] Deploy to the cluster (needs kubeconfig/secrets) + Grafana dashboards
-- [ ] Align UI + data model to the on-sale wireframes (`PriceWatch.pdf`)
-- [ ] Playwright fallback + proxy rotation for bot-protected retailers
-- [ ] KEDA autoscaling, `price_history` partitioning, price-drop alerts
+- [x] UI + data model aligned to the on-sale wireframes (`PriceWatch.pdf`) — On Sale Now
+      deals table, reference/normal price + reduction %, Configure screen
+- [x] AI shop onboarding (generate → judge → sandbox) + admin AI-usage/cost dashboard
+- [x] Playwright + stealth fallback for bot-protected retailers ([ADR-0008](docs/adr/0008-headless-browser-fallback.md))
+- [x] Self-hosted Jenkins → in-cluster registry → Helm deploy on the arm64 Pi cluster,
+      plus a seeded `pricecheck-demo` showcase release
+- [ ] Grafana dashboards on the cluster metrics
+- [ ] KEDA autoscaling, `price_history` partitioning, price-drop alert delivery
 
 Full phased plan and verification steps are in [`specs/architecture.md`](specs/architecture.md).
 
@@ -137,10 +153,11 @@ Full phased plan and verification steps are in [`specs/architecture.md`](specs/a
 | [`specs/product-overview.md`](specs/product-overview.md) | What PriceCheck is, capabilities, users, out-of-scope |
 | [`specs/architecture.md`](specs/architecture.md) | Worker fleet on k8s, decoupled queue, resilience & scale |
 | [`specs/data-models.md`](specs/data-models.md) | Entities, deal columns, money-as-minor-units |
-| [`specs/user-flows.md`](specs/user-flows.md) | On Sale Now, Configure, **Add a shop via AI** |
+| [`specs/user-flows.md`](specs/user-flows.md) | On Sale Now, Configure, **Add a shop via AI**, admin AI-usage dashboard |
 | [`specs/ai-rules.md`](specs/ai-rules.md) | Engineering conventions incl. AI generate→judge loop |
 | [`specs/design-system.md`](specs/design-system.md) | Brand + UI conventions |
 | [`specs/ci-cd-pipeline.md`](specs/ci-cd-pipeline.md) · [`specs/deployment.md`](specs/deployment.md) · [`specs/jenkins-setup.md`](specs/jenkins-setup.md) | Pipeline & deploy |
 | [`docs/portfolio/README.md`](docs/portfolio/README.md) | AI-leveraged SDLC, prompt engineering, evaluation framework, decision log |
 | [`docs/adr/`](docs/adr/) | Architecture Decision Records |
 | [`docs/diagrams/`](docs/diagrams/) | PlantUML sources + rendered diagrams |
+| [`docs/screenshots/`](docs/screenshots/) | Shot list for the UI screenshots referenced across these docs |
