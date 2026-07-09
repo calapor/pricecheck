@@ -20,10 +20,12 @@ resilient architecture.
 📄 **Full design:** [`specs/architecture.md`](specs/architecture.md) ·
 🔧 **Pipeline:** [`specs/ci-cd-pipeline.md`](specs/ci-cd-pipeline.md)
 
-> 📸 **Screenshot:** _On Sale Now — the home page: a sortable table of currently-discounted
-> grocery items (Product · Shop · Current Price · Normal Price · Reduction %) with per-row
-> 30-day price sparklines._ See [`docs/screenshots/`](docs/screenshots/) for the shot list.
-<!-- ![PriceCheck — On Sale Now](docs/screenshots/on-sale-now.png) -->
+<p align="center">
+  <img src="docs/screenshots/on-sale-now.png" alt="PriceCheck — On Sale Now" width="820">
+</p>
+<p align="center"><sub><i>On Sale Now — the home page: a sortable table of currently-discounted grocery items
+(Product · Shop · Current · Normal · Reduction %) with per-row 30-day price sparklines.
+More shots in <a href="docs/screenshots/">docs/screenshots/</a>.</i></sub></p>
 
 ---
 
@@ -39,9 +41,7 @@ resilient architecture.
   sandboxed plugin. New retailers are added without hand-writing an adapter, in any
   region or currency. See [`specs/user-flows.md`](specs/user-flows.md#add-a-new-shop-via-ai).
 
-  > 📸 **Screenshot:** _Add a shop via AI — paste a URL, Claude generates the scraper, and
-  > the AI judge returns an `install` / `warn` / `reject` verdict with findings._
-  <!-- ![Add a shop via AI — generate + judge](docs/screenshots/add-shop-ai.png) -->
+  ![Add a shop via AI — Claude generates a scraper and an AI judge returns an install/warn/reject verdict](docs/screenshots/add-shop-ai.png)
 - **Tracks AI spend** — an [admin dashboard](specs/user-flows.md#admin--ai-usage-dashboard)
   visualises Anthropic token usage and cost per route/operation/model over time.
 - Runs scraping as a **horizontally-scalable worker fleet on Kubernetes**, decoupled from

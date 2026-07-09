@@ -25,9 +25,7 @@ Route: [`apps/web/src/app/page.tsx`](../apps/web/src/app/page.tsx) →
 4. Prices are always the **last known** value; if stale, the row shows a staleness badge
    rather than waiting on a scrape (graceful degradation).
 
-> 📸 **Screenshot:** _On Sale Now — sortable deals table with per-row 30-day sparklines,
-> Refresh-all, and per-row alert/refresh controls._
-<!-- ![On Sale Now — deals table](../docs/screenshots/on-sale-now.png) -->
+![On Sale Now — sortable deals table with per-row 30-day sparklines and Refresh-all](../docs/screenshots/on-sale-now.png)
 
 ## Configure Shops & Products
 
@@ -43,9 +41,7 @@ Route: [`apps/web/src/app/configure/page.tsx`](../apps/web/src/app/configure/pag
 - Saving shows a **"Saved" toast**
   ([`save-toast.tsx`](../apps/web/src/app/configure/save-toast.tsx)).
 
-> 📸 **Screenshot:** _Configure — Shops and Products panels side by side, with the "Saved"
-> toast._
-<!-- ![Configure Shops & Products](../docs/screenshots/configure.png) -->
+![Configure — Products and Shops panels side by side](../docs/screenshots/configure.png)
 
 ## Add a new shop via AI
 
@@ -54,6 +50,9 @@ The headline flow. From the Shops panel, **✦ Generate scraper**:
 1. **Paste a shop URL.** `POST /api/scrapers/generate`
    ([route](../apps/web/src/app/api/scrapers/generate/route.ts)) fetches the page and
    strips scripts/styles to cut tokens.
+
+   ![Generate scraper — paste the shop URL; Claude inspects the page](../docs/screenshots/generating.png)
+
 2. **Claude generates a scraper.** The generator prompt turns the HTML into a CommonJS
    bundle that exports `scrape()` and embeds a `// METADATA` comment (slug, display name,
    base URL).
@@ -67,9 +66,7 @@ The headline flow. From the Shops panel, **✦ Generate scraper**:
    and runs it like any built-in adapter. See
    [ADR-0007](../docs/adr/0007-ai-generated-scraper-plugins.md).
 
-> 📸 **Screenshot:** _Generate scraper — the paste-URL dialog with the generated bundle
-> and the AI judge's verdict (`install` / `warn` / `reject`) and findings._
-<!-- ![Add a shop via AI — generate + judge](../docs/screenshots/add-shop-ai.png) -->
+![Generate scraper — the generated bundle alongside the AI judge's verdict and findings](../docs/screenshots/add-shop-ai.png)
 
 ## Admin / AI-usage dashboard
 
