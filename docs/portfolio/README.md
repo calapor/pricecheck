@@ -37,9 +37,7 @@ The AI-generated scraper pipeline uses a **generate → judge → sandbox** loop
 
 This pattern is described in full in [ADR-0007](../adr/0007-ai-generated-scraper-plugins.md) and [`specs/ai-rules.md`](../../specs/ai-rules.md).
 
-> 📸 **Screenshot:** _The generate → judge loop in the UI — a generated scraper bundle next
-> to the AI judge's verdict and findings._
-<!-- ![Add a shop via AI — generate + judge](../screenshots/add-shop-ai.png) -->
+![The generate → judge loop in the UI — a generated scraper bundle next to the AI judge's verdict and findings](../screenshots/add-shop-ai.png)
 
 Every generator and judge call is metered into the `ai_usage` table and surfaced on the
 [admin AI-usage dashboard](../../specs/user-flows.md#admin--ai-usage-dashboard) — the AI

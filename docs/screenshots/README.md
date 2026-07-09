@@ -25,13 +25,14 @@ below, then uncomment the matching `<!-- ![...] -->` line in the referencing doc
 
 ## Shot list
 
-| File | Route | What to show | Referenced in |
-|------|-------|--------------|---------------|
-| `on-sale-now.png` | `/` | On Sale Now deals table — Product · Shop · Current · Normal · Reduction %, per-row sparklines, Refresh-all | `README.md`, `specs/user-flows.md` |
-| `configure.png` | `/configure` | Shops + Products panels, with the "Saved" toast visible | `specs/user-flows.md` |
-| `add-shop-ai.png` | `/configure` → **✦ Generate scraper** | Paste-URL dialog with the generated bundle and the AI judge verdict (`install` / `warn` / `reject`) + findings | `README.md`, `specs/user-flows.md`, `docs/portfolio/README.md` |
-| `admin-ai-usage.png` | `/admin` | AI-usage dashboard — token/cost trend charts with per-route/model breakdown | `specs/user-flows.md`, `docs/portfolio/README.md` |
-| `observability.png` | Grafana **or** `kubectl` | Scrape success-rate / duration panel, or `kubectl get pods -n pricecheck` showing web/worker/scheduler pods | `specs/architecture.md` |
+| File | Status | Route | What to show | Referenced in |
+|------|--------|-------|--------------|---------------|
+| `on-sale-now.png` | ✅ captured | `/` | On Sale Now deals table — Product · Shop · Current · Normal · Reduction %, per-row sparklines, Refresh-all | `README.md`, `specs/user-flows.md` |
+| `configure.png` | ✅ captured | `/configure` | Products + Shops panels | `specs/user-flows.md` |
+| `generating.png` | ✅ captured | `/configure` → **✦ Generate scraper** | Paste-URL dialog in the "Generating…" state | `specs/user-flows.md` |
+| `add-shop-ai.png` | ✅ captured | `/configure` → **✦ Generate scraper** | Generated bundle + the AI judge verdict (`install` / `warn` / `reject`) + findings | `README.md`, `specs/user-flows.md`, `docs/portfolio/README.md` |
+| `admin-ai-usage.png` | ⬜ pending | `/admin` | AI-usage dashboard — token/cost trend charts with per-route/model breakdown | `specs/user-flows.md`, `docs/portfolio/README.md` |
+| `observability.png` | ⬜ pending | Grafana **or** `kubectl` | Scrape success-rate / duration panel, or `kubectl get pods -n pricecheck` showing web/worker/scheduler pods | `specs/architecture.md` |
 
 > The `/admin` dashboard is password-gated (`ADMIN_PASSWORD` / `secrets.adminPassword`).
 > To exercise the AI generate flow locally, set `ANTHROPIC_API_KEY` in `.env`.
