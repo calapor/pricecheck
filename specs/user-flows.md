@@ -25,6 +25,10 @@ Route: [`apps/web/src/app/page.tsx`](../apps/web/src/app/page.tsx) →
 4. Prices are always the **last known** value; if stale, the row shows a staleness badge
    rather than waiting on a scrape (graceful degradation).
 
+> 📸 **Screenshot:** _On Sale Now — sortable deals table with per-row 30-day sparklines,
+> Refresh-all, and per-row alert/refresh controls._
+<!-- ![On Sale Now — deals table](../docs/screenshots/on-sale-now.png) -->
+
 ## Configure Shops & Products
 
 Route: [`apps/web/src/app/configure/page.tsx`](../apps/web/src/app/configure/page.tsx)
@@ -38,6 +42,10 @@ Route: [`apps/web/src/app/configure/page.tsx`](../apps/web/src/app/configure/pag
   — CRUD tracked products, backed by `/api/products`.
 - Saving shows a **"Saved" toast**
   ([`save-toast.tsx`](../apps/web/src/app/configure/save-toast.tsx)).
+
+> 📸 **Screenshot:** _Configure — Shops and Products panels side by side, with the "Saved"
+> toast._
+<!-- ![Configure Shops & Products](../docs/screenshots/configure.png) -->
 
 ## Add a new shop via AI
 
@@ -58,6 +66,32 @@ The headline flow. From the Shops panel, **✦ Generate scraper**:
    it lazily in a **VM sandbox** ([`plugin-loader.ts`](../packages/scrapers/src/plugin-loader.ts))
    and runs it like any built-in adapter. See
    [ADR-0007](../docs/adr/0007-ai-generated-scraper-plugins.md).
+
+> 📸 **Screenshot:** _Generate scraper — the paste-URL dialog with the generated bundle
+> and the AI judge's verdict (`install` / `warn` / `reject`) and findings._
+<!-- ![Add a shop via AI — generate + judge](../docs/screenshots/add-shop-ai.png) -->
+
+## Admin / AI-usage dashboard
+
+Route: [`apps/web/src/app/admin/page.tsx`](../apps/web/src/app/admin/page.tsx) →
+[`usage-chart.tsx`](../apps/web/src/app/admin/usage-chart.tsx), gated by
+[`admin-login.tsx`](../apps/web/src/app/admin/admin-login.tsx) (`POST /api/admin/login`).
+
+Because every scraper **generate** and **judge** call is metered, the admin view turns AI
+spend into an operational signal rather than a surprise on the bill:
+
+1. Each Claude call records `route`, `operation` (generator/judge), `model`, input/output
+   tokens and `costMicros` in the **`ai_usage`** table (see
+   [`data-models.md`](data-models.md)).
+2. The dashboard charts token usage and **cost over time**, broken down by
+   route/operation/model, plus cumulative totals.
+3. In **demo mode** (`demo.mode`), the same screen exposes a **Reseed** button
+   (`POST /api/admin/reseed`) to reset the seeded SuperValu showcase data — see the
+   `pricecheck-demo` release in [`deployment.md`](deployment.md) / the `Jenkinsfile`.
+
+> 📸 **Screenshot:** _Admin — AI-usage dashboard: token/cost trend charts with the
+> per-route/model breakdown._
+<!-- ![Admin — AI-usage dashboard](../docs/screenshots/admin-ai-usage.png) -->
 
 ## Background: scheduled + on-demand scrape
 
