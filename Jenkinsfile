@@ -113,7 +113,7 @@ spec:
 
           script {
             if (!params.DEPLOY_ONLY) {
-              sh 'corepack enable && corepack prepare pnpm@11.1.1 --activate'
+              sh 'npm install -g pnpm@11.1.1 --force'
             }
           }
         }

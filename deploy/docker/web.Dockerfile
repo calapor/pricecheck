@@ -4,8 +4,11 @@ ENV PNPM_HOME=/pnpm
 ENV CI=true
 ENV PNPM_CONFIG_CONFIRM_MODULES_PURGE=false
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
-RUN corepack prepare pnpm@11.1.1 --activate
+# Install pnpm as a real global binary. node:22-slim ships a dangling `pnpm`
+# corepack stub that tries to fetch from registry.npmjs.org at activation time —
+# unreachable from the buildah build context on the Pi cluster. --force overwrites
+# it with a self-contained binary that works fully offline.
+RUN npm install -g pnpm@11.1.1 --force
 WORKDIR /app
 
 FROM base AS deps
