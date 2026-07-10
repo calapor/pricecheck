@@ -15,16 +15,16 @@ spec:
       command: ["sleep"]
       args: ["infinity"]
       resources:
-        requests: { cpu: "500m", memory: "1Gi" }
-        limits:   { cpu: "2",    memory: "2Gi" }
+        requests: { cpu: "500m", memory: "1Gi",   ephemeral-storage: "4Gi" }
+        limits:   { cpu: "2",    memory: "2Gi",   ephemeral-storage: "4Gi" }
 
     - name: helm
       image: alpine/helm:3.16.3
       command: ["sleep"]
       args: ["infinity"]
       resources:
-        requests: { cpu: "100m", memory: "128Mi" }
-        limits:   { cpu: "500m", memory: "256Mi" }
+        requests: { cpu: "100m", memory: "128Mi", ephemeral-storage: "256Mi" }
+        limits:   { cpu: "500m", memory: "256Mi", ephemeral-storage: "256Mi" }
 
     # Builds both images. Kaniko's snapshotter drops some of pnpm's .pnpm store
     # symlinks (e.g. pino-std-serializers), so the worker/scheduler crash with
@@ -175,6 +175,7 @@ spec:
       steps {
         container('buildah') {
           sh '''
+            buildah --storage-driver overlay system prune --all --force || true
             buildah --storage-driver overlay rm --all || true
             buildah --storage-driver overlay rmi --prune || true
           '''
