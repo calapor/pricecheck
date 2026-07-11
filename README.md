@@ -5,6 +5,7 @@
 # PriceCheck — Resilient Price-Scraping Platform
 
 [![CI](https://github.com/calapor/pricecheck/actions/workflows/ci.yml/badge.svg)](https://github.com/calapor/pricecheck/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/github/checks-status/calapor/pricecheck/main?check=Vitest&label=tests&logo=vitest)](https://github.com/calapor/pricecheck/actions/workflows/ci.yml)
 
 A production-shaped platform that periodically scrapes retailer sites and serves the
 latest prices (and price history) for tracked products. Built as a **portfolio
