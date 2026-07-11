@@ -6,7 +6,9 @@ import { Counter, Histogram, Registry, collectDefaultMetrics } from "prom-client
  * latencies, and DLQ growth.
  */
 export const registry = new Registry();
-collectDefaultMetrics({ register: registry });
+if (process.env.NODE_ENV !== "test") {
+  collectDefaultMetrics({ register: registry });
+}
 
 export const scrapeAttempts = new Counter({
   name: "pricecheck_scrape_attempts_total",
