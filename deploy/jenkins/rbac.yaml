@@ -23,7 +23,7 @@ rules:
     resources: ["services", "configmaps", "secrets", "persistentvolumeclaims", "pods", "serviceaccounts"]
     verbs: ["*"]
   - apiGroups: ["apps"]
-    resources: ["deployments", "statefulsets", "replicasets"]
+    resources: ["deployments", "statefulsets", "replicasets", "daemonsets"]
     verbs: ["*"]
   - apiGroups: ["batch"]
     resources: ["jobs", "cronjobs"]
