@@ -43,6 +43,8 @@ export function WelcomeWizard({ slides, sessionKey = "welcome_wizard_seen" }: We
   const isFirst = step === 0;
   const slide = slides[step];
 
+  if (!slide) return null;
+
   const slideClasses = animating
     ? direction === "forward"
       ? "opacity-0 -translate-x-4"
