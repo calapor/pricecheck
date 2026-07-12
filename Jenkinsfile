@@ -9,6 +9,19 @@ spec:
   serviceAccountName: jenkins-deployer
   securityContext:
     fsGroup: 1000
+  # Keep the build agent off whatever node hosts the in-cluster registry. That
+  # node also stores the registry-data PVC (local-path, node-pinned), so its disk
+  # is the tightest in the cluster; stacking this pod's 12Gi build scratch on top
+  # used to trip the node into DiskPressure mid-build and evict the agent
+  # ("Agent was removed" -> ABORTED). Anti-affinity (not a fixed nodeSelector) so
+  # it keeps working if the registry PVC later moves to a different node.
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels: { app: registry }
+          namespaces: ["pricecheck"]
+          topologyKey: kubernetes.io/hostname
   containers:
     - name: node
       image: node:22-bookworm
