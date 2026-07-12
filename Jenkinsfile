@@ -9,26 +9,25 @@ spec:
   serviceAccountName: jenkins-deployer
   securityContext:
     fsGroup: 1000
-  # Keep the build agent off whatever node hosts the in-cluster registry. That
-  # node also stores the registry-data PVC (local-path, node-pinned), so its disk
-  # is the tightest in the cluster; stacking this pod's 12Gi build scratch on top
-  # used to trip the node into DiskPressure mid-build and evict the agent
-  # ("Agent was removed" -> ABORTED). Anti-affinity (not a fixed nodeSelector) so
-  # it keeps working if the registry PVC later moves to a different node.
+  # Prefer to keep the build agent off the registry node (disk is tightest there),
+  # but allow it to land there if the other nodes are full — preferred not required,
+  # so a cluster-memory crunch doesn't leave the pod permanently Unschedulable.
   affinity:
     podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchLabels: { app: registry }
-          namespaces: ["pricecheck"]
-          topologyKey: kubernetes.io/hostname
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels: { app: registry }
+            namespaces: ["pricecheck"]
+            topologyKey: kubernetes.io/hostname
   containers:
     - name: node
       image: node:22-bookworm
       command: ["sleep"]
       args: ["infinity"]
       resources:
-        requests: { cpu: "500m", memory: "1Gi",   ephemeral-storage: "4Gi" }
+        requests: { cpu: "500m", memory: "256Mi",  ephemeral-storage: "4Gi" }
         limits:   { cpu: "2",    memory: "2Gi",   ephemeral-storage: "4Gi" }
 
     - name: helm
@@ -36,7 +35,7 @@ spec:
       command: ["sleep"]
       args: ["infinity"]
       resources:
-        requests: { cpu: "100m", memory: "128Mi", ephemeral-storage: "256Mi" }
+        requests: { cpu: "100m", memory: "64Mi",  ephemeral-storage: "256Mi" }
         limits:   { cpu: "500m", memory: "256Mi", ephemeral-storage: "256Mi" }
 
     # Builds both images. Kaniko's snapshotter drops some of pnpm's .pnpm store
@@ -58,13 +57,13 @@ spec:
         # briefly evicting every other pod on it). The overlay storage driver (see
         # the Build stage) shares layers instead of copying each one in full, so
         # actual usage stays well under this ceiling.
-        requests: { cpu: "500m", memory: "1Gi",   ephemeral-storage: "12Gi" }
+        requests: { cpu: "500m", memory: "256Mi",  ephemeral-storage: "12Gi" }
         limits:   { cpu: "2",    memory: "2.5Gi", ephemeral-storage: "12Gi" }
 
     - name: jnlp
       image: jenkins/inbound-agent:3355.v388858a_47b_33-3-jdk21
       resources:
-        requests: { cpu: "100m", memory: "256Mi", ephemeral-storage: "256Mi" }
+        requests: { cpu: "100m", memory: "128Mi", ephemeral-storage: "256Mi" }
         limits:   { cpu: "500m", memory: "512Mi", ephemeral-storage: "256Mi" }
 '''
     }
