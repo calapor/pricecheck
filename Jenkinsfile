@@ -47,6 +47,12 @@ spec:
         # actual usage stays well under this ceiling.
         requests: { cpu: "500m", memory: "1Gi",   ephemeral-storage: "12Gi" }
         limits:   { cpu: "2",    memory: "2.5Gi", ephemeral-storage: "12Gi" }
+
+    - name: jnlp
+      image: jenkins/inbound-agent:3355.v388858a_47b_33-3-jdk21
+      resources:
+        requests: { cpu: "100m", memory: "256Mi", ephemeral-storage: "256Mi" }
+        limits:   { cpu: "500m", memory: "512Mi", ephemeral-storage: "256Mi" }
 '''
     }
   }
