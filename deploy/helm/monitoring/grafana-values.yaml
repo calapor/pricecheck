@@ -42,7 +42,7 @@ dashboards:
       json: |
         {
           "uid": "node-resources",
-          "title": "Node Resources \u2014 Disk & Memory",
+          "title": "Node Resources \u2014 CPU, Disk & Memory",
           "tags": [
             "nodes",
             "infrastructure"
@@ -57,6 +57,60 @@ dashboards:
           "panels": [
             {
               "type": "gauge",
+              "title": "CPU Used %",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 0,
+                "y": 0
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "prometheus",
+                    "uid": "prometheus"
+                  },
+                  "expr": "100 * (1 - avg by (node) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))",
+                  "legendFormat": "{{node}}",
+                  "refId": "A"
+                }
+              ],
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percent",
+                  "min": 0,
+                  "max": 100,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      },
+                      {
+                        "color": "yellow",
+                        "value": 75
+                      },
+                      {
+                        "color": "red",
+                        "value": 90
+                      }
+                    ]
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "showThresholdLabels": false,
+                "showThresholdMarkers": true
+              }
+            },
+            {
+              "type": "gauge",
               "title": "Memory Used %",
               "datasource": {
                 "type": "prometheus",
@@ -64,8 +118,8 @@ dashboards:
               },
               "gridPos": {
                 "h": 8,
-                "w": 12,
-                "x": 0,
+                "w": 8,
+                "x": 8,
                 "y": 0
               },
               "targets": [
@@ -118,8 +172,8 @@ dashboards:
               },
               "gridPos": {
                 "h": 8,
-                "w": 12,
-                "x": 12,
+                "w": 8,
+                "x": 16,
                 "y": 0
               },
               "targets": [
@@ -165,6 +219,52 @@ dashboards:
             },
             {
               "type": "timeseries",
+              "title": "CPU Used % over time",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 8,
+                "x": 0,
+                "y": 8
+              },
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "prometheus",
+                    "uid": "prometheus"
+                  },
+                  "expr": "100 * (1 - avg by (node) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))",
+                  "legendFormat": "{{node}}",
+                  "refId": "A"
+                }
+              ],
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percent",
+                  "min": 0,
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 10,
+                    "showPoints": "never"
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom"
+                },
+                "tooltip": {
+                  "mode": "multi"
+                }
+              }
+            },
+            {
+              "type": "timeseries",
               "title": "Memory Used % over time",
               "datasource": {
                 "type": "prometheus",
@@ -172,8 +272,8 @@ dashboards:
               },
               "gridPos": {
                 "h": 8,
-                "w": 12,
-                "x": 0,
+                "w": 8,
+                "x": 8,
                 "y": 8
               },
               "targets": [
@@ -218,8 +318,8 @@ dashboards:
               },
               "gridPos": {
                 "h": 8,
-                "w": 12,
-                "x": 12,
+                "w": 8,
+                "x": 16,
                 "y": 8
               },
               "targets": [
