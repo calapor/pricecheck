@@ -273,12 +273,27 @@ spec:
                   helm repo add grafana https://grafana.github.io/helm-charts
                   helm repo update
 
+                  # Remove any prior prometheus release AND free NodePort 30091
+                  # directly. A helm release record can be gone while its Service
+                  # still squats on the nodePort (aborted/rolled-back install),
+                  # so `helm uninstall` alone is not enough — delete the Service
+                  # object explicitly. 30091 is used only by Prometheus, so any
+                  # Service holding it is a stale orphan and safe to remove.
                   helm uninstall prometheus --namespace monitoring 2>/dev/null || true
+
+                  # Cluster-wide sweep: delete whatever Service currently holds nodePort 30091.
+                  kubectl get svc -A -o go-template='{{range .items}}{{range .spec.ports}}{{if eq (printf "%v" .nodePort) "30091"}}{{$.metadata.namespace}}/{{$.metadata.name}}{{"\n"}}{{end}}{{end}}{{end}}' \
+                    | while IFS=/ read -r ns name; do
+                        [ -n "$name" ] && kubectl delete svc "$name" -n "$ns" --ignore-not-found --wait
+                      done
+
+                  # Belt-and-suspenders: the chart's Service is always named prometheus-server.
+                  kubectl delete svc prometheus-server -n monitoring --ignore-not-found --wait
 
                   helm upgrade --install prometheus prometheus-community/prometheus \
                     --namespace monitoring --create-namespace \
                     --values deploy/helm/monitoring/prometheus-values.yaml \
-                    --force --wait --timeout 10m
+                    --wait --timeout 10m
 
                   helm upgrade --install grafana grafana/grafana \
                     --namespace monitoring --create-namespace \
