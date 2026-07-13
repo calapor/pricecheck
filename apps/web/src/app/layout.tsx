@@ -173,10 +173,9 @@ export default function RootLayout({
         )}
         <WelcomeWizard slides={pricecheckSlides} sessionKey="demo_welcome_seen" />
         <div
-          className="fixed bottom-1 right-1.5 text-[11px] font-mono text-zinc-400 opacity-60 pointer-events-none z-[9999]"
-          title="Running build"
+          style={{ position: "fixed", bottom: 8, right: 12, fontSize: 11, color: "#444", userSelect: "none", pointerEvents: "none", zIndex: 9999 }}
         >
-          {process.env.APP_VERSION ?? "dev"}
+          {process.env.APP_VERSION || "dev"}
         </div>
       </body>
     </html>

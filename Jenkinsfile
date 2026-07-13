@@ -274,12 +274,11 @@ spec:
                   helm repo update
 
                   helm uninstall prometheus --namespace monitoring 2>/dev/null || true
-                  kubectl delete service prometheus-server -n monitoring --ignore-not-found=true
 
                   helm upgrade --install prometheus prometheus-community/prometheus \
                     --namespace monitoring --create-namespace \
                     --values deploy/helm/monitoring/prometheus-values.yaml \
-                    --wait --timeout 10m
+                    --force --wait --timeout 10m
 
                   helm upgrade --install grafana grafana/grafana \
                     --namespace monitoring --create-namespace \
