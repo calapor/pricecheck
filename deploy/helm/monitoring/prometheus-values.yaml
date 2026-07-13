@@ -1,7 +1,7 @@
 server:
   service:
     type: NodePort
-    nodePort: 30091
+    nodePort: 30093   # was 30091 — collided with default/tvkodbdi-demo-frontend-service
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits:   { cpu: 500m, memory: 512Mi }
