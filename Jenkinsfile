@@ -273,6 +273,9 @@ spec:
                   helm repo add grafana https://grafana.github.io/helm-charts
                   helm repo update
 
+                  helm uninstall prometheus --namespace monitoring 2>/dev/null || true
+                  kubectl delete service prometheus-server -n monitoring --ignore-not-found=true
+
                   helm upgrade --install prometheus prometheus-community/prometheus \
                     --namespace monitoring --create-namespace \
                     --values deploy/helm/monitoring/prometheus-values.yaml \
