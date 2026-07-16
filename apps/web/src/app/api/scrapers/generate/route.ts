@@ -16,6 +16,7 @@ import { browserFetcher } from "@pricecheck/scrapers/browser";
 import { recordAiUsage } from "@pricecheck/db";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isClaudeHalted, CLAUDE_HALTED_MESSAGE } from "@/lib/claude-halt";
 
 // First-attempt generator + the judge run on Sonnet. On a truncated draft we retry once
 // on Opus, which is far better at completing long, multi-path structured code in one pass.
@@ -109,6 +110,14 @@ export async function POST(req: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
       { error: "ANTHROPIC_API_KEY is not set — add it to .env.local to generate scrapers." },
+      { status: 503 },
+    );
+  }
+
+  // Shared Claude-API kill switch — stop before spending any tokens.
+  if (await isClaudeHalted()) {
+    return NextResponse.json(
+      { error: CLAUDE_HALTED_MESSAGE, claudeHalted: true },
       { status: 503 },
     );
   }

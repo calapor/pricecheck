@@ -232,6 +232,7 @@ spec:
             string(credentialsId: 'postgres-password', variable: 'PG_PASSWORD'),
             string(credentialsId: 'anthropic-api-key', variable: 'ANTHROPIC_KEY'),
             string(credentialsId: 'admin-password', variable: 'ADMIN_PASSWORD'),
+            string(credentialsId: 'flags-database-url', variable: 'FLAGS_DB_URL'),
             string(credentialsId: 'grafana-admin-password', variable: 'GRAFANA_ADMIN_PASSWORD'),
           ]) {
             sh '''
@@ -262,6 +263,7 @@ spec:
                 --set postgres.password="${PG_PASSWORD}" \
                 --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
                 --set secrets.adminPassword="${ADMIN_PASSWORD}" \
+                --set secrets.flagsDatabaseUrl="${FLAGS_DB_URL}" \
                 --set config.generatorMaxTokens="${GENERATOR_MAX_TOKENS}" \
                 --wait --timeout 200m
             '''
@@ -315,6 +317,7 @@ spec:
                     --set postgres.password="${PG_PASSWORD}" \
                     --set secrets.anthropicApiKey="${ANTHROPIC_KEY}" \
                     --set secrets.adminPassword="${ADMIN_PASSWORD}" \
+                    --set secrets.flagsDatabaseUrl="${FLAGS_DB_URL}" \
                     --wait --timeout 200m
                 '''
               }
