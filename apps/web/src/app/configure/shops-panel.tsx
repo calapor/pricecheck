@@ -58,6 +58,9 @@ export function ShopsPanel({ initial, onSaved }: Props) {
   // Generate wizard state
   const [shopUrl, setShopUrl] = useState("");
   const [generating, setGenerating] = useState(false);
+  // Shared Claude-API kill switch (see /api/claude-status)
+  const [claudeHalted, setClaudeHalted] = useState(false);
+  const [haltMessage, setHaltMessage] = useState("");
   const [generatedBundle, setGeneratedBundle] = useState<string | null>(null);
   const [generatedSlug, setGeneratedSlug] = useState("");
   const [generatedDisplayName, setGeneratedDisplayName] = useState("");
@@ -104,6 +107,17 @@ export function ShopsPanel({ initial, onSaved }: Props) {
     onSaved();
   }
 
+  // On mount, check the shared Claude-API kill switch so we can pre-disable the button.
+  useEffect(() => {
+    fetch("/api/claude-status")
+      .then((r) => r.json())
+      .then((d: { halted?: boolean; message?: string }) => {
+        setClaudeHalted(!!d.halted);
+        setHaltMessage(d.message ?? "");
+      })
+      .catch(() => undefined);
+  }, []);
+
   async function handleGenerate() {
     if (!shopUrl.trim()) return;
     setGenerating(true);
@@ -118,6 +132,7 @@ export function ShopsPanel({ initial, onSaved }: Props) {
       });
       const data = await safeJson<{
         error?: string;
+        claudeHalted?: boolean;
         bundleJs?: string;
         slug?: string;
         displayName?: string;
@@ -125,6 +140,10 @@ export function ShopsPanel({ initial, onSaved }: Props) {
         verdict?: JudgeVerdict;
       }>(res);
       if (!res.ok || !data) {
+        if (data?.claudeHalted) {
+          setClaudeHalted(true);
+          setHaltMessage(data.error ?? "");
+        }
         setGenerateError(data?.error ?? `Generation failed (HTTP ${res.status})`);
         return;
       }
@@ -216,13 +235,21 @@ export function ShopsPanel({ initial, onSaved }: Props) {
             )}
             <button
               onClick={() => setMode("generate")}
-              className="rounded-md border border-zinc-300 px-3 py-1 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+              disabled={claudeHalted}
+              title={claudeHalted ? haltMessage : undefined}
+              className="rounded-md border border-zinc-300 px-3 py-1 text-xs font-medium hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:hover:bg-zinc-900"
             >
               ✦ Generate scraper
             </button>
           </div>
         )}
       </div>
+
+      {claudeHalted && (
+        <div className="rounded border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+          {haltMessage || "Claude API budget for today has been used, please try again tomorrow."}
+        </div>
+      )}
 
       {/* Add existing scraper dropdown */}
       {mode === "add-existing" && (
@@ -277,7 +304,7 @@ export function ShopsPanel({ initial, onSaved }: Props) {
             <div className="flex gap-2">
               <button
                 onClick={handleGenerate}
-                disabled={generating || !shopUrl.trim()}
+                disabled={generating || !shopUrl.trim() || claudeHalted}
                 className="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40 dark:bg-white dark:text-zinc-900"
               >
                 {generating ? "Generating…" : "Generate"}

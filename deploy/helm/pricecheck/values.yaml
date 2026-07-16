@@ -87,6 +87,7 @@ secrets:
   redisUrl: "" # used only when redis.enabled=false
   adminPassword: "" # password for the /admin AI-usage dashboard (admin disabled if empty)
   anthropicApiKey: "" # Anthropic API key for scraper generation (feature disabled if empty)
+  flagsDatabaseUrl: "" # Neon pooled URL for global_flags table (claudehalt kill switch; fail-open if empty)
 
 # In-cluster Postgres (StatefulSet). STAGING ONLY — for production disable this
 # and use CloudNativePG or a managed Postgres, then supply secrets.databaseUrl /
