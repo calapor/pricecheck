@@ -23,7 +23,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/queue/package.json packages/queue/
 COPY packages/observability/package.json packages/observability/
 COPY packages/scrapers/package.json packages/scrapers/
-RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install --frozen-lockfile --config.confirmModulesPurge=false
+RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install --frozen-lockfile --config.confirmModulesPurge=false --fetch-timeout=600000 --fetch-retries=10
 
 FROM deps AS build
 COPY . .
