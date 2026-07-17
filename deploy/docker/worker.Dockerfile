@@ -30,7 +30,7 @@ COPY apps ./apps
 COPY packages ./packages
 # Skip Playwright's per-package postinstall browser download; we do one explicit,
 # deps-included install into PLAYWRIGHT_BROWSERS_PATH on the next layer instead.
-RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install --frozen-lockfile --config.confirmModulesPurge=false
+RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install --frozen-lockfile --config.confirmModulesPurge=false --fetch-timeout=600000 --fetch-retries=10
 
 # Chromium + the system libraries it needs (apt) for the headless-browser fallback.
 RUN pnpm --filter @pricecheck/scrapers exec playwright install --with-deps chromium
