@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 
 export interface WizardSlide {
@@ -15,9 +15,11 @@ interface WelcomeWizardProps {
 }
 
 export function WelcomeWizard({ slides, sessionKey = "welcome_wizard_seen" }: WelcomeWizardProps) {
-  const [visible, setVisible] = useState(
-    () => typeof window !== "undefined" && sessionStorage.getItem(sessionKey) !== "1",
-  );
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem(sessionKey) !== "1") setVisible(true);
+  }, [sessionKey]);
   const [step, setStep] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [direction, setDirection] = useState<"forward" | "back">("forward");

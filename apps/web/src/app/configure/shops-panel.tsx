@@ -26,6 +26,7 @@ interface JudgeVerdict {
 interface Props {
   initial: Retailer[];
   onSaved: () => void;
+  demoMode?: boolean;
 }
 
 type Mode = "idle" | "add-existing" | "generate";
@@ -45,7 +46,7 @@ async function safeJson<T = Record<string, unknown>>(res: Response): Promise<T |
   }
 }
 
-export function ShopsPanel({ initial, onSaved }: Props) {
+export function ShopsPanel({ initial, onSaved, demoMode }: Props) {
   const [items, setItems] = useState<Retailer[]>(initial);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState({ name: "", baseUrl: "" });
@@ -69,6 +70,7 @@ export function ShopsPanel({ initial, onSaved }: Props) {
   const [smokeQuery, setSmokeQuery] = useState("Alpro Barista Almond");
   const [installing, setInstalling] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
 
   const reload = useCallback(async () => {
     const res = await fetch("/api/retailers");
@@ -118,6 +120,35 @@ export function ShopsPanel({ initial, onSaved }: Props) {
       .catch(() => undefined);
   }, []);
 
+  async function handleDemo() {
+    setMode("generate");
+    setIsDemo(true);
+    setGenerateError(null);
+    try {
+      const res = await fetch("/api/scrapers/demo");
+      const data = await safeJson<{
+        error?: string;
+        bundleJs?: string;
+        slug?: string;
+        displayName?: string;
+        baseUrl?: string;
+        verdict?: JudgeVerdict;
+      }>(res);
+      if (!res.ok || !data) {
+        setGenerateError(data?.error ?? `Demo load failed (HTTP ${res.status})`);
+        return;
+      }
+      setGeneratedBundle(data.bundleJs ?? "");
+      setGeneratedSlug(data.slug ?? "");
+      setGeneratedDisplayName(data.displayName ?? "");
+      setGeneratedBaseUrl(data.baseUrl ?? "");
+      setVerdict(data.verdict ?? null);
+      setSmokeQuery("salmon");
+    } catch (err) {
+      setGenerateError(String(err));
+    }
+  }
+
   async function handleGenerate() {
     if (!shopUrl.trim()) return;
     setGenerating(true);
@@ -163,17 +194,19 @@ export function ShopsPanel({ initial, onSaved }: Props) {
     if (!generatedBundle) return;
     setInstalling(true);
     try {
-      const res = await fetch("/api/scrapers/install", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          slug: generatedSlug,
-          displayName: generatedDisplayName,
-          baseUrl: generatedBaseUrl,
-          bundleJs: generatedBundle,
-          query: smokeQuery.trim(),
-        }),
-      });
+      const res = isDemo
+        ? await fetch("/api/scrapers/demo", { method: "POST" })
+        : await fetch("/api/scrapers/install", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              slug: generatedSlug,
+              displayName: generatedDisplayName,
+              baseUrl: generatedBaseUrl,
+              bundleJs: generatedBundle,
+              query: smokeQuery.trim(),
+            }),
+          });
       const data = await safeJson<{ error?: string }>(res);
       if (!res.ok || !data) {
         setGenerateError(data?.error ?? `Install failed (HTTP ${res.status})`);
@@ -181,10 +214,13 @@ export function ShopsPanel({ initial, onSaved }: Props) {
       }
       // Plugin installed — reload available list so it appears in the dropdown
       await loadAvailable();
+      await reload();
       setMode("idle");
       setGeneratedBundle(null);
       setVerdict(null);
       setShopUrl("");
+      setIsDemo(false);
+      onSaved();
     } finally {
       setInstalling(false);
     }
@@ -231,6 +267,14 @@ export function ShopsPanel({ initial, onSaved }: Props) {
                 className="rounded-md border border-zinc-300 px-3 py-1 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
               >
                 + Add shop
+              </button>
+            )}
+            {demoMode && (
+              <button
+                onClick={handleDemo}
+                className="rounded-md border border-zinc-300 px-3 py-1 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+              >
+                ✦ Try demo
               </button>
             )}
             <button
@@ -310,7 +354,7 @@ export function ShopsPanel({ initial, onSaved }: Props) {
                 {generating ? "Generating…" : "Generate"}
               </button>
               <button
-                onClick={() => { setMode("idle"); setGeneratedBundle(null); setVerdict(null); }}
+                onClick={() => { setMode("idle"); setGeneratedBundle(null); setVerdict(null); setIsDemo(false); }}
                 className="rounded-md border border-zinc-300 px-3 py-1 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700"
               >
                 Cancel
@@ -326,6 +370,11 @@ export function ShopsPanel({ initial, onSaved }: Props) {
                 <div className={`flex items-center gap-2 text-xs font-medium ${verdictColour}`}>
                   <span>Judge: {verdict.recommendation.toUpperCase()}</span>
                   <span className="text-zinc-400">({verdict.score}/100)</span>
+                  {isDemo && (
+                    <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                      demo
+                    </span>
+                  )}
                 </div>
                 {verdict.findings.length > 0 && (
                   <ul className="mt-1 flex flex-col gap-0.5">
@@ -402,7 +451,7 @@ export function ShopsPanel({ initial, onSaved }: Props) {
                   Regenerate
                 </button>
                 <button
-                  onClick={() => { setMode("idle"); setGeneratedBundle(null); setVerdict(null); }}
+                  onClick={() => { setMode("idle"); setGeneratedBundle(null); setVerdict(null); setIsDemo(false); }}
                   className="rounded-md border border-zinc-300 px-3 py-1 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700"
                 >
                   Cancel

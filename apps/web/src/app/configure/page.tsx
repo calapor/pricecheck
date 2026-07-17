@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ConfigurePage() {
   const [prods, rets] = await Promise.all([listProducts(db), listRetailers(db)]);
+  const demoMode = process.env.DEMO_MODE === "true";
 
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-12">
@@ -17,7 +18,7 @@ export default async function ConfigurePage() {
         <h1 className="text-lg font-semibold">Configure</h1>
       </div>
 
-      <ConfigureClient initialProducts={prods} initialRetailers={rets} />
+      <ConfigureClient initialProducts={prods} initialRetailers={rets} demoMode={demoMode} />
     </main>
   );
 }
