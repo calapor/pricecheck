@@ -25,16 +25,17 @@ interface Retailer {
 interface Props {
   initialProducts: Product[];
   initialRetailers: Retailer[];
+  demoMode?: boolean;
 }
 
-export function ConfigureClient({ initialProducts, initialRetailers }: Props) {
+export function ConfigureClient({ initialProducts, initialRetailers, demoMode }: Props) {
   const [toast, setToast] = useState(false);
 
   return (
     <>
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <ProductsPanel initial={initialProducts} onSaved={() => setToast(true)} />
-        <ShopsPanel initial={initialRetailers} onSaved={() => setToast(true)} />
+        <ShopsPanel initial={initialRetailers} onSaved={() => setToast(true)} demoMode={demoMode} />
       </div>
       <SaveToast show={toast} onDone={() => setToast(false)} />
     </>
