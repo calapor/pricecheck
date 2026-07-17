@@ -18,7 +18,9 @@ export function WelcomeWizard({ slides, sessionKey = "welcome_wizard_seen" }: We
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (sessionStorage.getItem(sessionKey) !== "1") setVisible(true);
+    Promise.resolve(sessionStorage.getItem(sessionKey) !== "1")
+      .then((shouldShow) => { if (shouldShow) setVisible(true); })
+      .catch(() => {});
   }, [sessionKey]);
   const [step, setStep] = useState(0);
   const [animating, setAnimating] = useState(false);
