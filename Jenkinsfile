@@ -166,7 +166,7 @@ spec:
       when { not { expression { params.DEPLOY_ONLY } } }
       steps {
         container('node') {
-          sh 'pnpm install --frozen-lockfile'
+          sh 'pnpm install --frozen-lockfile --network-timeout 120000'
         }
       }
     }
