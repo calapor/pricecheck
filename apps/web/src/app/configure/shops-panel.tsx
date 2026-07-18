@@ -71,6 +71,8 @@ export function ShopsPanel({ initial, onSaved, demoMode }: Props) {
   const [installing, setInstalling] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [isDemo, setIsDemo] = useState(false);
+  const [demoTyping, setDemoTyping] = useState(false);
+  const [demoButtonPressed, setDemoButtonPressed] = useState(false);
 
   const reload = useCallback(async () => {
     const res = await fetch("/api/retailers");
@@ -124,6 +126,22 @@ export function ShopsPanel({ initial, onSaved, demoMode }: Props) {
     setMode("generate");
     setIsDemo(true);
     setGenerateError(null);
+    setShopUrl("");
+    setDemoTyping(true);
+
+    const demoUrl = "https://www.tesco.ie/";
+    for (let i = 1; i <= demoUrl.length; i++) {
+      await new Promise<void>((r) => setTimeout(r, 200));
+      setShopUrl(demoUrl.slice(0, i));
+    }
+
+    await new Promise<void>((r) => setTimeout(r, 1000));
+
+    setDemoButtonPressed(true);
+    await new Promise<void>((r) => setTimeout(r, 180));
+    setDemoButtonPressed(false);
+    setDemoTyping(false);
+
     try {
       const res = await fetch("/api/scrapers/demo");
       const data = await safeJson<{
@@ -338,6 +356,7 @@ export function ShopsPanel({ initial, onSaved, demoMode }: Props) {
             autoFocus
             placeholder="https://shop.example.ie/"
             value={shopUrl}
+            readOnly={demoTyping}
             onChange={(e) => setShopUrl(e.target.value)}
             className="w-full rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
@@ -348,8 +367,8 @@ export function ShopsPanel({ initial, onSaved, demoMode }: Props) {
             <div className="flex gap-2">
               <button
                 onClick={handleGenerate}
-                disabled={generating || !shopUrl.trim() || claudeHalted}
-                className="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40 dark:bg-white dark:text-zinc-900"
+                disabled={generating || !shopUrl.trim() || claudeHalted || demoTyping}
+                className={`rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40 dark:bg-white dark:text-zinc-900 transition-transform duration-75${demoButtonPressed ? " scale-95 brightness-75" : ""}`}
               >
                 {generating ? "Generating…" : "Generate"}
               </button>
