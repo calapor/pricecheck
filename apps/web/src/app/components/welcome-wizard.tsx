@@ -67,7 +67,7 @@ export function WelcomeWizard({ slides, sessionKey = "welcome_wizard_seen" }: We
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="w-full max-w-md rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
+          className="flex w-full max-w-md flex-col rounded-2xl bg-white shadow-2xl dark:bg-zinc-900 max-h-[90svh]"
           role="dialog"
           aria-modal="true"
           aria-label={String(slides[0]?.headline ?? "Welcome")}
@@ -87,7 +87,7 @@ export function WelcomeWizard({ slides, sessionKey = "welcome_wizard_seen" }: We
 
           {/* Slide content */}
           <div
-            className={`px-8 pb-2 transition-all duration-200 ease-in-out ${slideClasses} ${isLast ? "pt-8" : "pt-2"}`}
+            className={`flex-1 overflow-y-auto px-8 pb-2 transition-all duration-200 ease-in-out ${slideClasses} ${isLast ? "pt-8" : "pt-2"}`}
           >
             {slide.visual}
             <h2 className="mt-5 text-center text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
