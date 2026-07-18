@@ -131,16 +131,17 @@ export function ShopsPanel({ initial, onSaved, demoMode }: Props) {
 
     const demoUrl = "https://www.tesco.ie/";
     for (let i = 1; i <= demoUrl.length; i++) {
-      await new Promise<void>((r) => setTimeout(r, 200));
+      await new Promise<void>((r) => setTimeout(r, 160));
       setShopUrl(demoUrl.slice(0, i));
     }
 
     await new Promise<void>((r) => setTimeout(r, 1000));
 
     setDemoButtonPressed(true);
-    await new Promise<void>((r) => setTimeout(r, 180));
+    await new Promise<void>((r) => setTimeout(r, 320));
     setDemoButtonPressed(false);
     setDemoTyping(false);
+    await new Promise<void>((r) => setTimeout(r, 300));
 
     try {
       const res = await fetch("/api/scrapers/demo");
